@@ -1,0 +1,196 @@
+name: Build
+
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+jobs:
+  buildLinux:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        buildType: [Debug, Release]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Environment
+        run: |
+          sudo apt-get update && sudo apt-get install -y libxaw7-dev libxrandr-dev libxcb-randr0-dev libx11-dev xserver-xorg-dev xorg-dev libx11-xcb1 libxcb-res0-dev xcb libxcb-xkb-dev x11-xkb-utils libx11-xcb-dev libxkbcommon-x11-dev libgtk-3-dev
+      - name: Download prebuilt dependencies
+        uses: dawidd6/action-download-artifact@v8
+        with:
+          name: avBuiltLinux-${{ matrix.buildType }}.tar.gz
+          repo: OtherMythos/avBuild
+          workflow: linux.yml
+      - name: Expand artifact
+        run: |
+          tar -xvf build.tar.gz
+      - name: Setup CMake
+        run: |
+          mkdir -p native/build
+          cd native/build
+          git clone https://github.com/OtherMythos/avEngine.git /tmp/avEngine
+          cmake -DCMAKE_BUILD_TYPE=${{ matrix.buildType }} -DENGINE_SOURCE_PATH=/tmp/avEngine -DAV_LIBS_DIR=${{ github.workspace }}/${{ matrix.buildType }} ..
+      - name: Build
+        run: |
+          cd native/build
+          cmake --build .
+          cp "plugin/libAvImguiPlugin.so" "plugin/libAvImguiPlugin_${{ matrix.buildType }}-linux-x86_64.so"
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: libAvImguiPlugin_${{ matrix.buildType }}-linux-x86_64.so
+          path: "native/build/plugin/libAvImguiPlugin_${{ matrix.buildType }}-linux-x86_64.so"
+
+  buildMacOS:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        buildType: [Debug, Release]
+        buildArch: [arm64]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Download prebuilt dependencies
+        uses: dawidd6/action-download-artifact@v8
+        with:
+          name: avBuiltMacOS_${{ matrix.buildArch }}_${{ matrix.buildType }}.tar.gz
+          repo: OtherMythos/avBuild
+          workflow: macOS.yml
+      - name: Expand artifact
+        run: |
+          tar -xvf build.tar.gz
+      - name: Setup CMake
+        run: |
+          mkdir -p native/build
+          cd native/build
+          git clone https://github.com/OtherMythos/avEngine.git /tmp/avEngine
+          cmake -DCMAKE_BUILD_TYPE=${{ matrix.buildType }} -DENGINE_SOURCE_PATH=/tmp/avEngine -DAV_LIBS_DIR="${{ github.workspace }}/${{ matrix.buildType }}" ..
+      - name: Build
+        run: |
+          cd native/build
+          cmake --build .
+          cp "plugin/libAvImguiPlugin.so" "plugin/libAvImguiPlugin_${{ matrix.buildType }}-macos-${{ matrix.buildArch }}.so"
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: libAvImguiPlugin_${{ matrix.buildType }}-macos-${{ matrix.buildArch }}.so
+          path: "native/build/plugin/libAvImguiPlugin_${{ matrix.buildType }}-macos-${{ matrix.buildArch }}.so"
+
+  buildWindows:
+    runs-on: windows-2022
+    strategy:
+      matrix:
+        buildType: [Debug, Release]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Download prebuilt dependencies
+        uses: dawidd6/action-download-artifact@v8
+        with:
+          name: avBuiltWindows-${{ matrix.buildType }}.zip
+          repo: OtherMythos/avBuild
+          workflow: windows.yml
+      - name: Download avCore artifact
+        uses: dawidd6/action-download-artifact@v8
+        with:
+          name: avCore-${{ matrix.buildType }}.lib
+          repo: OtherMythos/avEngine
+          workflow: buildWindows.yml
+      - name: Expand artifact
+        run: |
+          Expand-Archive avBuilt-windows-${{ matrix.buildType }}.zip .
+      - name: Clone engine
+        run: |
+          git clone https://github.com/OtherMythos/avEngine.git D:/avEngine
+          cd D:\avEngine
+          mkdir build
+          cd build
+          mkdir ${{ matrix.buildType }}
+          cd ${{ matrix.buildType }}
+          cp ${{ github.workspace }}/avCore.lib avCore.lib
+      - name: Setup CMake
+        run: |
+          cd native
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=${{ matrix.buildType }} -DENGINE_SOURCE_PATH='D:\avEngine' -DAV_LIBS_DIR=${{ github.workspace }}/avBuilt/${{ matrix.buildType }} ..
+      - name: Build
+        run: |
+          cd native/build
+          cmake --build . --config ${{ matrix.buildType }}
+          cp "plugin/${{ matrix.buildType }}/AvImguiPlugin.dll" "plugin/AvImguiPlugin_${{ matrix.buildType }}-windows-x86_64.dll"
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: AvImguiPlugin_${{ matrix.buildType }}-windows-x86_64.dll
+          path: "native/build/plugin/AvImguiPlugin_${{ matrix.buildType }}-windows-x86_64.dll"
+
+  buildIOS:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        buildType: [Debug, Release]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Select Xcode 26
+        run: sudo xcode-select -s /Applications/Xcode_26.0.app
+      - name: Download prebuilt dependencies
+        uses: dawidd6/action-download-artifact@v8
+        with:
+          name: avBuiltiOS_${{ matrix.buildType }}.tar.gz
+          repo: OtherMythos/avBuild
+          workflow: iOS.yml
+      - name: Expand artifact
+        run: |
+          tar -xvf build.tar.gz
+      - name: Setup CMake
+        run: |
+          mkdir -p native/build
+          cd native/build
+          git clone https://github.com/OtherMythos/avEngine.git /tmp/avEngine
+          cmake -DAV_LIBS_DIR=${{ github.workspace }}/${{ matrix.buildType }} -DCMAKE_BUILD_TYPE=${{ matrix.buildType }} -DCMAKE_TOOLCHAIN_FILE=/tmp/avEngine/CMake/iosbuild.toolchain.cmake -GXcode -DPLATFORM=OS64 -DENGINE_SOURCE_PATH=/tmp/avEngine ..
+      - name: Build
+        run: |
+          cd native/build
+          cmake --build . --target ALL_BUILD --config ${{ matrix.buildType }}
+          cp "plugin/${{ matrix.buildType }}-iphoneos/libAvImguiPlugin_static.a" "${{ github.workspace }}/libAvImguiPlugin_ios_static_${{ matrix.buildType }}.a"
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: libAvImguiPlugin_ios_static_${{ matrix.buildType }}.a
+          path: "${{ github.workspace }}/libAvImguiPlugin_ios_static_${{ matrix.buildType }}.a"
+
+  distribution:
+    needs: [buildLinux, buildMacOS, buildWindows, buildIOS]
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: plugins
+          merge-multiple: true
+      - name: Assemble distribution
+        run: |
+          mkdir -p /tmp/distribution/plugins/include/native/plugin/src
+          cp plugins/* /tmp/distribution/plugins/
+          # The static plugin integration files, so a project can point
+          # AV_PROJECT_DIR at the expanded distribution.
+          cp CMakeLists.txt StaticPlugins.h /tmp/distribution/
+          cp native/plugin/src/AvImguiPlugin.h /tmp/distribution/plugins/include/native/plugin/src/AvImguiPlugin.h
+          cd /tmp/distribution
+          ls -R .
+      - name: Upload distribution
+        uses: actions/upload-artifact@v6
+        with:
+          name: avImguiPlugin-distribution
+          path: /tmp/distribution

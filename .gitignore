@@ -1,0 +1,15 @@
+# Local reference checkouts (not part of this repo)
+/avEngine/
+/imgui/
+/ogre-next-imgui/
+
+# Build directories
+build/
+native/build/
+native/buildIos/
+
+# Editor/OS
+.DS_Store
+*.swp
+.vscode/
+.idea/
