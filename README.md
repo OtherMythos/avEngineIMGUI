@@ -18,7 +18,7 @@ function update(){
 
 ## Quick start
 
-1. Download the plugin binaries from the actions distribution artifact (or build them, see below) and place them in a `plugins` directory inside your project. The engine picks the correct binary by platform, architecture and build type from the file name, so a single directory can hold every variant:
+1. Download the `avImguiPlugin-distribution` artifact from the actions build (or build it yourself, see below) and extract it into your project as `plugins/`. It is already laid out for this — drop it in as-is, nothing to rearrange. The engine picks the correct binary by platform, architecture and build type from the file name, so one directory holds every variant:
 
 ```
 myProject/
@@ -28,8 +28,15 @@ myProject/
     libAvImguiPlugin_Release-macos-arm64.so
     libAvImguiPlugin_Debug-linux-x86_64.so
     AvImguiPlugin_Release-windows-x86_64.dll
+    libAvImguiPlugin_ios_static_Release.a     # static platforms, see below
+    AvImguiPlugin.cmake                       # links the .a into an iOS build
+    include/AvImguiPlugin.h
     ...
 ```
+
+Only the binaries matter on desktop; the engine ignores the rest of the directory.
+
+imgui remembers window positions in an `imgui.ini` written to the working directory at runtime, so it is worth adding to a project's `.gitignore`.
 
 2. Register the plugin in `avSetup.cfg`:
 
@@ -354,7 +361,7 @@ Dear ImGui itself is vendored in [native/imgui](native/imgui) and compiled into 
 
 ## Static builds (iOS)
 
-Platforms without dynamic loading link the plugin statically into the engine. Building with the iOS toolchain (`-DPLATFORM=OS64`) produces only `AvImguiPlugin_static`:
+Platforms without dynamic loading link the plugin into the engine binary instead. Building with the iOS toolchain (`-DPLATFORM=OS64`) produces only the static library:
 
 ```bash
 cmake -DAV_LIBS_DIR=/path/to/avBuiltIos/Debug -DCMAKE_BUILD_TYPE=Debug \
@@ -362,17 +369,35 @@ cmake -DAV_LIBS_DIR=/path/to/avBuiltIos/Debug -DCMAKE_BUILD_TYPE=Debug \
       -GXcode -DPLATFORM=OS64 -DENGINE_SOURCE_PATH=/path/to/avEngine ..
 ```
 
-The engine build is then pointed at this repo (or an expanded distribution artifact, which has the same layout):
+Linking it is the [Quick start](#quick-start) plus two lines, because the distribution ships the CMake module and the header that do the work. The engine reserves `AV_PROJECT_DIR` for the *project* (it is also how the project declares what gets bundled into the app), so the plugin plugs into the project's static-plugin setup rather than replacing it.
 
-```bash
-cmake -DUSE_STATIC_PLUGINS=True -DAV_PROJECT_DIR=/path/to/avEngineIMGUI ... # engine build
+In the project's `CMakeLists.txt` — the one the engine loads via `AV_PROJECT_DIR`:
+
+```cmake
+list(APPEND StaticPluginIncludes ${CMAKE_CURRENT_LIST_DIR})
+include(${CMAKE_CURRENT_LIST_DIR}/plugins/AvImguiPlugin.cmake)
 ```
 
-The engine compiles [StaticPlugins.h](StaticPlugins.h), which registers the plugin with `REGISTER_PLUGIN`, and the root [CMakeLists.txt](CMakeLists.txt) locates the prebuilt static library and exports it to the engine build. A game project with its own static plugins instead adds the equivalent `REGISTER_PLUGIN("AvImguiPlugin", AVImgui::AvImguiPlugin)` line to its own `StaticPlugins.h` and appends the library to its `StaticPluginLibraries`.
+In the project's `StaticPlugins.h`:
+
+```cpp
+#pragma once
+#include "AvImguiPlugin.h"
+
+void registerStaticPlugins(){
+    REGISTER_PLUGIN("AvImguiPlugin", AVImgui::AvImguiPlugin)
+}
+```
+
+Then build the engine with `-DUSE_STATIC_PLUGINS=True -DAV_PROJECT_DIR=/path/to/project`.
+
+`AvImguiPlugin.cmake` picks the right `.a` for the platform and build type, appends it to `StaticPluginLibraries`, adds its `include/` to `StaticPluginIncludes`, and propagates both to the engine build. It *appends*, so a project that registers its own native plugins keeps them — include it after your own entries.
 
 ## CI
 
-The [build workflow](.github/workflows/build.yml) builds Debug and Release binaries for Linux x86_64, macOS arm64, Windows x86_64 and an iOS static library, using the prebuilt dependency artifacts from `OtherMythos/avBuild` and the engine source from `OtherMythos/avEngine`. The `distribution` job bundles every binary together with the static integration files into a single `avImguiPlugin-distribution` artifact, named so the engine's runtime plugin search picks the right file per platform.
+The [build workflow](.github/workflows/build.yml) builds Debug and Release binaries for Linux x86_64, macOS arm64, Windows x86_64 and an iOS static library, using the prebuilt dependency artifacts from `OtherMythos/avBuild` and the engine source from `OtherMythos/avEngine`.
+
+The `distribution` job assembles the `avImguiPlugin-distribution` artifact, which is exactly the `plugins/` directory described in the Quick start — every platform binary, `AvImguiPlugin.cmake` and `include/AvImguiPlugin.h`. Extract it into a project as `plugins/` and nothing needs renaming or rearranging.
 
 # Architecture notes
 

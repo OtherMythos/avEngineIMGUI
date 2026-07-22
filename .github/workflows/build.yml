@@ -177,18 +177,18 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: plugins
+          path: binaries
           merge-multiple: true
+      # The distribution is exactly what a project drops in as its plugins/
+      # directory: every platform binary, the CMake module used to link the
+      # static library, and the plugin header for the project's StaticPlugins.h.
       - name: Assemble distribution
         run: |
-          mkdir -p /tmp/distribution/plugins/include/native/plugin/src
-          cp plugins/* /tmp/distribution/plugins/
-          # The static plugin integration files, so a project can point
-          # AV_PROJECT_DIR at the expanded distribution.
-          cp CMakeLists.txt StaticPlugins.h /tmp/distribution/
-          cp native/plugin/src/AvImguiPlugin.h /tmp/distribution/plugins/include/native/plugin/src/AvImguiPlugin.h
-          cd /tmp/distribution
-          ls -R .
+          mkdir -p /tmp/distribution/include
+          cp binaries/* /tmp/distribution/
+          cp cmake/AvImguiPlugin.cmake /tmp/distribution/
+          cp native/plugin/src/AvImguiPlugin.h /tmp/distribution/include/
+          ls -R /tmp/distribution
       - name: Upload distribution
         uses: actions/upload-artifact@v6
         with:
