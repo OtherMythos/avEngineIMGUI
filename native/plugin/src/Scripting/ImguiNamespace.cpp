@@ -183,6 +183,16 @@ namespace AVImgui{
             sq_pushbool(vm, AvImguiPlugin::destroyOverlayWorkspace());
             return 1;
         }
+        SQInteger setAutoOverlayEnabled(HSQUIRRELVM vm){
+            SQBool enabled;
+            sq_getbool(vm, 2, &enabled);
+            AvImguiPlugin::setAutoOverlayEnabled(enabled != SQFalse);
+            return 0;
+        }
+        SQInteger getAutoOverlayEnabled(HSQUIRRELVM vm){
+            sq_pushbool(vm, AvImguiPlugin::getAutoOverlayEnabled());
+            return 1;
+        }
 
         //---------------------------------------------------------------------
         //Windows
@@ -1180,6 +1190,8 @@ namespace AVImgui{
         AV::ScriptUtils::addFunction(vm, setRenderingEnabled, "setRenderingEnabled", 2, ".b");
         AV::ScriptUtils::addFunction(vm, createOverlayWorkspace, "createOverlayWorkspace");
         AV::ScriptUtils::addFunction(vm, destroyOverlayWorkspace, "destroyOverlayWorkspace");
+        AV::ScriptUtils::addFunction(vm, setAutoOverlayEnabled, "setAutoOverlayEnabled", 2, ".b");
+        AV::ScriptUtils::addFunction(vm, getAutoOverlayEnabled, "getAutoOverlayEnabled");
 
         //Windows
         AV::ScriptUtils::addFunction(vm, begin, "begin", -2, ".si");

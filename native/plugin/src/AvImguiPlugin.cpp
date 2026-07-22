@@ -2,7 +2,6 @@
 
 #include "System/Plugins/PluginManager.h"
 #include "System/BaseSingleton.h"
-#include "System/SystemSetup/SystemSettings.h"
 #include "Window/Window.h"
 #include "Scripting/ScriptVM.h"
 
@@ -36,6 +35,7 @@ namespace AVImgui{
     CompositorPassImguiProvider* AvImguiPlugin::mProvider = 0;
     Ogre::CompositorWorkspace* AvImguiPlugin::mOverlayWorkspace = 0;
     Ogre::Camera* AvImguiPlugin::mCamera = 0;
+    bool AvImguiPlugin::mAutoOverlayEnabled = true;
 
     AvImguiPlugin::AvImguiPlugin()
         : Plugin("AvImguiPlugin"){
@@ -60,7 +60,7 @@ namespace AVImgui{
 
         ImguiManager::createSingleton();
         ImguiManager::getSingletonPtr()->init(sceneManager, windowTexture);
-        ImguiManager::getSingletonPtr()->setPreNewFrameCallback(&ImguiInput::applyTextInputState);
+        ImguiManager::getSingletonPtr()->setPreNewFrameCallback(&AvImguiPlugin::_prepareFrame);
 
         //Register a ready-made node and workspace containing the imgui pass.
         //This is done programmatically because compositor scripts are parsed
@@ -78,17 +78,30 @@ namespace AVImgui{
             workspaceDef->connectExternal(0, "avImgui/RenderNode", 0);
         }
 
-        //With the default compositor the overlay can be created immediately.
-        //Projects with their own compositor setup create their workspaces from
-        //script, so the overlay would execute before them and be drawn over.
-        //Those projects call _imgui.createOverlayWorkspace() themselves.
-        if(AV::SystemSettings::getUseDefaultCompositor()){
-            createOverlayWorkspace();
-        }
+        //The overlay workspace is deliberately not created here. Plugins
+        //initialise before any workspace exists: the engine's default
+        //compositor workspace is still queued (CompositorManager2 only moves
+        //queued workspaces into its list while rendering), and projects with a
+        //custom compositor create theirs later from script. Creating the
+        //overlay now would therefore execute it before those workspaces and
+        //the gui would be drawn over.
+        //
+        //Instead it is created on the first frame which actually uses imgui,
+        //by which point the project's workspaces exist. Ogre appends new
+        //workspaces, so the overlay always executes last.
+        //@see _prepareFrame
 
         ImguiInput::initialise();
 
         AV::ScriptVM::setupNamespace("_imgui", ImguiNamespace::setupNamespace);
+    }
+
+    void AvImguiPlugin::_prepareFrame(){
+        if(mAutoOverlayEnabled && !mOverlayWorkspace){
+            createOverlayWorkspace();
+        }
+
+        ImguiInput::applyTextInputState();
     }
 
     bool AvImguiPlugin::createOverlayWorkspace(){
@@ -112,6 +125,10 @@ namespace AVImgui{
     }
 
     bool AvImguiPlugin::destroyOverlayWorkspace(){
+        //An explicit destroy means the project is managing rendering itself,
+        //so the overlay must not be re-created on the next frame.
+        mAutoOverlayEnabled = false;
+
         if(!mOverlayWorkspace) return false;
 
         Ogre::Root* root = Ogre::Root::getSingletonPtr();

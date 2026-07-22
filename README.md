@@ -82,15 +82,22 @@ function update(){
 
 The plugin renders through a custom compositor pass with the custom id `imgui`. Ogre allows a single compositor pass provider, which the engine already uses for its own passes (`rect2d`, `colibri_gui`), so the plugin *wraps* the engine's provider and delegates every other custom pass id to it.
 
-How the pass reaches the screen depends on the project:
+By default nothing needs configuring. The first frame which actually uses imgui creates an overlay workspace (`avImgui/Workspace`) that draws the gui over whatever has already been rendered. Because Ogre appends new workspaces, the overlay always executes after the workspaces that exist at that moment — so this works whether the project uses the engine's default compositor or builds its own workspaces from script during `start()`.
 
-- **Default compositor** (`"UseDefaultCompositor"` unset or `true`): the plugin automatically creates an overlay workspace (`avImgui/Workspace`) which draws the gui over the finished frame. Nothing to configure.
-- **Custom compositor projects** (the project creates its own workspaces from script): call `_imgui.createOverlayWorkspace()` once your own workspaces exist, so the overlay executes after them:
+Two cases need attention:
+
+- **Workspaces created after imgui is first used.** A workspace added later executes after the overlay and would draw over the gui. Recreate the overlay so it goes last again:
+
+```squirrel
+_imgui.destroyOverlayWorkspace();
+_imgui.createOverlayWorkspace();
+```
+
+- **Projects rendering imgui through their own compositor** (using `pass custom imgui`, below) should turn the overlay off during setup, otherwise the gui is rendered twice:
 
 ```squirrel
 function start(){
-    //set up your own compositor workspaces first...
-    _imgui.createOverlayWorkspace();
+    _imgui.setAutoOverlayEnabled(false);
 }
 ```
 
@@ -311,8 +318,9 @@ if(_imgui.beginTable("entities", 2, _imgui.TableFlags_Borders | _imgui.TableFlag
 | `isFirstUpdateOfFrame()` → bool | See the frame model section. |
 | `wantCaptureMouse()` / `wantCaptureKeyboard()` / `wantTextInput()` → bool | |
 | `setRenderingEnabled(bool)` | Quickly hide/show the gui without changing script logic. |
-| `createOverlayWorkspace()` → bool | For custom compositor projects. |
-| `destroyOverlayWorkspace()` → bool | |
+| `createOverlayWorkspace()` → bool | Usually automatic. True if it was created, false if it already existed. |
+| `destroyOverlayWorkspace()` → bool | Also disables automatic re-creation. |
+| `setAutoOverlayEnabled(bool)` / `getAutoOverlayEnabled()` → bool | Turn off when rendering imgui through your own compositor pass. |
 
 ### Constants
 

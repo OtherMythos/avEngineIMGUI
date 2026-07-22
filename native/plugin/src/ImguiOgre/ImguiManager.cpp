@@ -129,8 +129,8 @@ namespace AVImgui{
         float height = 400.f;
 
         if (mDisplayTarget) {
-            width = mDisplayTarget->getWidth();
-            height = mDisplayTarget->getHeight();
+            width = static_cast<float>(mDisplayTarget->getWidth());
+            height = static_cast<float>(mDisplayTarget->getHeight());
         }
         if (mPrevWidth != width || mPrevHeight != height) {
             mPrevWidth = width;
