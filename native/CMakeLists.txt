@@ -53,4 +53,23 @@ include_directories(${AV_LIBS_DIR}/sds_library/include/sds)
 set(AV_IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/imgui)
 include_directories(${AV_IMGUI_DIR})
 
+#Embed the plugin's git hash, in the spirit of the engine's CMake/CheckGit.cmake.
+#Generated at configure time, so re-run cmake to refresh it after committing.
+execute_process(
+    COMMAND git log -1 --format=%h
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    OUTPUT_VARIABLE AV_IMGUI_GIT_HASH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+if(AV_IMGUI_GIT_HASH STREQUAL "")
+    set(AV_IMGUI_GIT_HASH "unknown")
+endif()
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/AvImguiGitVersion.h.in
+    ${CMAKE_BINARY_DIR}/generated/AvImguiGitVersion.h
+    @ONLY
+)
+include_directories(${CMAKE_BINARY_DIR}/generated)
+
 add_subdirectory(plugin)

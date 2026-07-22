@@ -18,23 +18,26 @@ function update(){
 
 ## Quick start
 
-1. Download the `avImguiPlugin-distribution` artifact from the actions build (or build it yourself, see below) and extract it into your project as `plugins/`. It is already laid out for this — drop it in as-is, nothing to rearrange. The engine picks the correct binary by platform, architecture and build type from the file name, so one directory holds every variant:
+1. Download the distribution artifact from the actions build (or build it yourself, see below) and extract it into your project's `plugins/` directory. The zip is named `avImguiPlugin-<version>-<hash>.zip` and extracts to a folder called `avImguiPlugin`, already laid out — drop it in as-is, nothing to rearrange:
 
 ```
 myProject/
   avSetup.cfg
   plugins/
-    libAvImguiPlugin_Debug-macos-arm64.so
-    libAvImguiPlugin_Release-macos-arm64.so
-    libAvImguiPlugin_Debug-linux-x86_64.so
-    AvImguiPlugin_Release-windows-x86_64.dll
-    libAvImguiPlugin_ios_static_Release.a     # static platforms, see below
-    AvImguiPlugin.cmake                       # links the .a into an iOS build
-    include/AvImguiPlugin.h
-    ...
+    avImguiPlugin/
+      bin/
+        libAvImguiPlugin_Debug-macos-arm64.so
+        libAvImguiPlugin_Release-macos-arm64.so
+        libAvImguiPlugin_Debug-linux-x86_64.so
+        AvImguiPlugin_Release-windows-x86_64.dll
+        libAvImguiPlugin_ios_static_Release.a   # static platforms, see below
+        ...
+      plugin.cmake                              # links the .a into an iOS build
+      include/AvImguiPlugin.h
+      README.md
 ```
 
-Only the binaries matter on desktop; the engine ignores the rest of the directory.
+The engine picks the correct binary out of `bin/` by platform, architecture and build type, so one directory holds every variant. Only `bin/` matters on desktop.
 
 imgui remembers window positions in an `imgui.ini` written to the working directory at runtime, so it is worth adding to a project's `.gitignore`.
 
@@ -44,7 +47,7 @@ imgui remembers window positions in an `imgui.ini` written to the working direct
 "Plugins": [
     {
         "name": "AvImguiPlugin",
-        "path": "res://plugins"
+        "path": "res://plugins/avImguiPlugin/bin"
     }
 ]
 ```
@@ -57,7 +60,7 @@ imgui remembers window positions in an `imgui.ini` written to the working direct
         "name": "AvImguiPlugin",
         "path": [
             "res://native/build/plugin/libAvImguiPlugin.so",
-            "res://plugins"
+            "res://plugins/avImguiPlugin/bin"
         ]
     }
 ]
@@ -359,6 +362,16 @@ This produces `plugin/libAvImguiPlugin.so` (`AvImguiPlugin.dll` on Windows) and 
 
 Dear ImGui itself is vendored in [native/imgui](native/imgui) and compiled into the plugin — the engine and project never need an imgui dependency.
 
+## Versioning
+
+The version lives in [native/plugin/src/Versions.h](native/plugin/src/Versions.h) and is bumped by hand. The git hash is generated at configure time into `AvImguiGitVersion.h` from [cmake/AvImguiGitVersion.h.in](cmake/AvImguiGitVersion.h.in), following the engine's `CMake/CheckGit.cmake` — but namespaced as `AVImgui::kGitHash`, because the engine defines its own global `kGitHash` and on static platforms both end up in the same binary.
+
+The plugin prints both to stdout when it loads, so a log says exactly what is running:
+
+```
+AvImguiPlugin 0.1.0 unstable (79bf3dd) with Dear ImGui 1.92.8
+```
+
 ## Static builds (iOS)
 
 Platforms without dynamic loading link the plugin into the engine binary instead. Building with the iOS toolchain (`-DPLATFORM=OS64`) produces only the static library:
@@ -375,7 +388,7 @@ In the project's `CMakeLists.txt` — the one the engine loads via `AV_PROJECT_D
 
 ```cmake
 list(APPEND StaticPluginIncludes ${CMAKE_CURRENT_LIST_DIR})
-include(${CMAKE_CURRENT_LIST_DIR}/plugins/AvImguiPlugin.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/plugins/avImguiPlugin/plugin.cmake)
 ```
 
 In the project's `StaticPlugins.h`:
@@ -391,13 +404,13 @@ void registerStaticPlugins(){
 
 Then build the engine with `-DUSE_STATIC_PLUGINS=True -DAV_PROJECT_DIR=/path/to/project`.
 
-`AvImguiPlugin.cmake` picks the right `.a` for the platform and build type, appends it to `StaticPluginLibraries`, adds its `include/` to `StaticPluginIncludes`, and propagates both to the engine build. It *appends*, so a project that registers its own native plugins keeps them — include it after your own entries.
+`plugin.cmake` picks the right `.a` for the platform and build type, appends it to `StaticPluginLibraries`, adds its `include/` to `StaticPluginIncludes`, and propagates both to the engine build. It *appends*, so a project that registers its own native plugins keeps them — include it after your own entries.
 
 ## CI
 
 The [build workflow](.github/workflows/build.yml) builds Debug and Release binaries for Linux x86_64, macOS arm64, Windows x86_64 and an iOS static library, using the prebuilt dependency artifacts from `OtherMythos/avBuild` and the engine source from `OtherMythos/avEngine`.
 
-The `distribution` job assembles the `avImguiPlugin-distribution` artifact, which is exactly the `plugins/` directory described in the Quick start — every platform binary, `AvImguiPlugin.cmake` and `include/AvImguiPlugin.h`. Extract it into a project as `plugins/` and nothing needs renaming or rearranging.
+The `distribution` job assembles the artifact described in the Quick start: `bin/` with every platform binary, `plugin.cmake`, `include/AvImguiPlugin.h` and a short README. The zip is named `avImguiPlugin-<version>-<hash>.zip` (version from [Versions.h](native/plugin/src/Versions.h), hash from the commit) and extracts to a folder called `avImguiPlugin`, so it drops straight into a project's `plugins/` with nothing to rename.
 
 # Architecture notes
 

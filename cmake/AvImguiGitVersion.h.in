@@ -1,0 +1,10 @@
+#pragma once
+
+//Generated from cmake/AvImguiGitVersion.h.in at configure time. Follows the
+//engine's CMake/git_version.cpp.in, but the symbol is namespaced: on static
+//platforms this library is linked into the engine binary, which defines its own
+//global kGitHash, and two of those would be a duplicate symbol.
+
+namespace AVImgui{
+    inline constexpr const char* kGitHash = "@AV_IMGUI_GIT_HASH@";
+}

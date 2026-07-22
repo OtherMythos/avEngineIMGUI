@@ -182,15 +182,31 @@ jobs:
       # The distribution is exactly what a project drops in as its plugins/
       # directory: every platform binary, the CMake module used to link the
       # static library, and the plugin header for the project's StaticPlugins.h.
+      # It is staged inside a folder named avImguiPlugin so the downloaded zip
+      # extracts to that name, while the zip itself carries version and hash.
       - name: Assemble distribution
+        id: dist
         run: |
-          mkdir -p /tmp/distribution/include
-          cp binaries/* /tmp/distribution/
-          cp cmake/AvImguiPlugin.cmake /tmp/distribution/
-          cp native/plugin/src/AvImguiPlugin.h /tmp/distribution/include/
-          ls -R /tmp/distribution
+          VERSIONS=native/plugin/src/Versions.h
+          MAJOR=$(sed -n 's/^#define AV_IMGUI_PLUGIN_VERSION_MAJOR \([0-9]*\).*/\1/p' $VERSIONS)
+          MINOR=$(sed -n 's/^#define AV_IMGUI_PLUGIN_VERSION_MINOR \([0-9]*\).*/\1/p' $VERSIONS)
+          PATCH=$(sed -n 's/^#define AV_IMGUI_PLUGIN_VERSION_PATCH \([0-9]*\).*/\1/p' $VERSIONS)
+          VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          GIT_HASH=$(git log -1 --format=%h)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "hash=${GIT_HASH}" >> $GITHUB_OUTPUT
+
+          DIST=/tmp/dist/avImguiPlugin
+          mkdir -p $DIST/bin $DIST/include
+          cp binaries/* $DIST/bin/
+          cp cmake/distributionPlugin.cmake $DIST/plugin.cmake
+          cp native/plugin/src/AvImguiPlugin.h $DIST/include/
+          cp cmake/distributionREADME.md $DIST/README.md
+          printf '\nBuilt from version %s, commit %s.\n' "$VERSION" "$GIT_HASH" >> $DIST/README.md
+          ls -R /tmp/dist
       - name: Upload distribution
         uses: actions/upload-artifact@v6
         with:
-          name: avImguiPlugin-distribution
-          path: /tmp/distribution
+          name: avImguiPlugin-${{ steps.dist.outputs.version }}-${{ steps.dist.outputs.hash }}
+          # The parent dir, so the archive keeps the avImguiPlugin/ folder.
+          path: /tmp/dist

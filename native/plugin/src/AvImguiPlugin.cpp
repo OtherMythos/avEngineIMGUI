@@ -10,6 +10,12 @@
 #include "Input/ImguiInput.h"
 #include "Scripting/ImguiNamespace.h"
 
+#include "Versions.h"
+#include "AvImguiGitVersion.h"
+#include "imgui.h"
+
+#include <iostream>
+
 #include "OgreRoot.h"
 #include "OgreSceneManager.h"
 #include "OgreWindow.h"
@@ -47,6 +53,13 @@ namespace AVImgui{
     }
 
     void AvImguiPlugin::initialise(){
+        //stdout rather than the engine's logger: AV_INFO reads a static data
+        //member through an inline getter, which Windows does not export.
+        std::cout << "AvImguiPlugin " << AV_IMGUI_PLUGIN_VERSION_STRING
+                  << " " << AV_IMGUI_PLUGIN_VERSION_SUFFIX
+                  << " (" << kGitHash << ")"
+                  << " with Dear ImGui " << IMGUI_VERSION << std::endl;
+
         Ogre::Root* root = Ogre::Root::getSingletonPtr();
         Ogre::CompositorManager2* compositorManager = root->getCompositorManager2();
 
