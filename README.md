@@ -157,6 +157,7 @@ if(_imgui.colorEdit3("Tint", col)){
 - Positions and sizes are plain number pairs, and functions returning a pair return a two element array `[x, y]`.
 - Flag and enum constants are integers in the namespace, named after the imgui enum without the `ImGui` prefix: `ImGuiWindowFlags_NoResize` is `_imgui.WindowFlags_NoResize`. Combine with `|`.
 - Text is never interpreted as a format string, so any characters are safe to display.
+- A widget's label is also its identity. Two widgets in the same window must not share a label, and the label may not be empty — imgui asserts (and the engine stops) if it is. Everything after `##` is used for identity but not drawn, so `"##fps"` is a hidden label and `"Speed##left"` and `"Speed##right"` are two distinct sliders. `pushId`/`popId` does the same for a whole block, which is the usual fix inside loops.
 - imgui pairing rules apply: `begin`/`end` must always be paired, while `beginChild`, `beginTabBar`, `beginMenu`, `beginPopup`, `beginTable` and friends follow imgui's rule that the matching `end*` is only called when the begin returned `true` (except `endChild`, which is always required).
 
 ### Windows
@@ -314,6 +315,8 @@ if(_imgui.beginTable("entities", 2, _imgui.TableFlags_Borders | _imgui.TableFlag
 | `showMetricsWindow()` | imgui internals/metrics. |
 | `getVersion()` → string | The imgui version, e.g. `"1.92.8"`. |
 | `getTime()` → float / `getFrameCount()` → int | |
+| `getFramerate()` → float | Smoothed real framerate. Measured per *rendered* frame, so it is not the engine's fixed script update rate. |
+| `getDeltaTime()` → float | Seconds since the previous imgui frame. |
 | `getDisplaySize()` → [w, h] | |
 | `isFirstUpdateOfFrame()` → bool | See the frame model section. |
 | `wantCaptureMouse()` / `wantCaptureKeyboard()` / `wantTextInput()` → bool | |

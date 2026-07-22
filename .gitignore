@@ -13,3 +13,5 @@ native/buildIos/
 *.swp
 .vscode/
 .idea/
+
+imgui.ini

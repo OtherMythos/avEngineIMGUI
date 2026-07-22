@@ -138,6 +138,19 @@ namespace AVImgui{
             sq_pushinteger(vm, ImGui::GetFrameCount());
             return 1;
         }
+        SQInteger getFramerate(HSQUIRRELVM vm){
+            //Smoothed over recent frames by imgui. Measured per rendered frame,
+            //so this is the real framerate rather than the engine's fixed
+            //script update rate.
+            IMGUI_FRAME_GUARD
+            sq_pushfloat(vm, ImGui::GetIO().Framerate);
+            return 1;
+        }
+        SQInteger getDeltaTime(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            sq_pushfloat(vm, ImGui::GetIO().DeltaTime);
+            return 1;
+        }
         SQInteger getDisplaySize(HSQUIRRELVM vm){
             IMGUI_FRAME_GUARD
             const ImVec2 size = ImGui::GetIO().DisplaySize;
@@ -1182,6 +1195,8 @@ namespace AVImgui{
         AV::ScriptUtils::addFunction(vm, getVersion, "getVersion");
         AV::ScriptUtils::addFunction(vm, getTime, "getTime");
         AV::ScriptUtils::addFunction(vm, getFrameCount, "getFrameCount");
+        AV::ScriptUtils::addFunction(vm, getFramerate, "getFramerate");
+        AV::ScriptUtils::addFunction(vm, getDeltaTime, "getDeltaTime");
         AV::ScriptUtils::addFunction(vm, getDisplaySize, "getDisplaySize");
         AV::ScriptUtils::addFunction(vm, wantCaptureMouse, "wantCaptureMouse");
         AV::ScriptUtils::addFunction(vm, wantCaptureKeyboard, "wantCaptureKeyboard");
@@ -1229,16 +1244,16 @@ namespace AVImgui{
         AV::ScriptUtils::addFunction(vm, checkbox, "checkbox", 3, ".sb");
         AV::ScriptUtils::addFunction(vm, radioButton, "radioButton", 3, ".sb");
         AV::ScriptUtils::addFunction(vm, selectable, "selectable", -2, ".sbinn");
-        AV::ScriptUtils::addFunction(vm, progressBar, "progressBar", -2, ".nnns");
+        AV::ScriptUtils::addFunction(vm, progressBar, "progressBar", -2, ".nnns|o");
         AV::ScriptUtils::addFunction(vm, bullet, "bullet");
 
         //Value widgets
-        AV::ScriptUtils::addFunction(vm, sliderFloat, "sliderFloat", -5, ".snnnsi");
-        AV::ScriptUtils::addFunction(vm, sliderInt, "sliderInt", -5, ".siiisi");
-        AV::ScriptUtils::addFunction(vm, sliderFloatN, "sliderFloatN", -5, ".sannsi");
-        AV::ScriptUtils::addFunction(vm, dragFloat, "dragFloat", -3, ".snnnnsi");
-        AV::ScriptUtils::addFunction(vm, dragInt, "dragInt", -3, ".sinnnsi");
-        AV::ScriptUtils::addFunction(vm, inputFloat, "inputFloat", -3, ".snnnsi");
+        AV::ScriptUtils::addFunction(vm, sliderFloat, "sliderFloat", -5, ".snnns|oi");
+        AV::ScriptUtils::addFunction(vm, sliderInt, "sliderInt", -5, ".siiis|oi");
+        AV::ScriptUtils::addFunction(vm, sliderFloatN, "sliderFloatN", -5, ".sanns|oi");
+        AV::ScriptUtils::addFunction(vm, dragFloat, "dragFloat", -3, ".snnnns|oi");
+        AV::ScriptUtils::addFunction(vm, dragInt, "dragInt", -3, ".sinnns|oi");
+        AV::ScriptUtils::addFunction(vm, inputFloat, "inputFloat", -3, ".snnns|oi");
         AV::ScriptUtils::addFunction(vm, inputInt, "inputInt", -3, ".siiii");
         AV::ScriptUtils::addFunction(vm, inputText, "inputText", -3, ".ssi");
         AV::ScriptUtils::addFunction(vm, inputTextMultiline, "inputTextMultiline", -3, ".ssnni");
@@ -1284,7 +1299,7 @@ namespace AVImgui{
         AV::ScriptUtils::addFunction(vm, endMainMenuBar, "endMainMenuBar");
         AV::ScriptUtils::addFunction(vm, beginMenu, "beginMenu", -2, ".sb");
         AV::ScriptUtils::addFunction(vm, endMenu, "endMenu");
-        AV::ScriptUtils::addFunction(vm, menuItem, "menuItem", -2, ".ssbb");
+        AV::ScriptUtils::addFunction(vm, menuItem, "menuItem", -2, ".ss|obb");
         AV::ScriptUtils::addFunction(vm, beginTabBar, "beginTabBar", -2, ".si");
         AV::ScriptUtils::addFunction(vm, endTabBar, "endTabBar");
         AV::ScriptUtils::addFunction(vm, beginTabItem, "beginTabItem", -2, ".si");
@@ -1312,8 +1327,8 @@ namespace AVImgui{
         AV::ScriptUtils::addFunction(vm, setTooltip, "setTooltip", 2, ".s");
 
         //Plots
-        AV::ScriptUtils::addFunction(vm, plotLines, "plotLines", -3, ".sasnnnn");
-        AV::ScriptUtils::addFunction(vm, plotHistogram, "plotHistogram", -3, ".sasnnnn");
+        AV::ScriptUtils::addFunction(vm, plotLines, "plotLines", -3, ".sas|onnnn");
+        AV::ScriptUtils::addFunction(vm, plotHistogram, "plotHistogram", -3, ".sas|onnnn");
 
         //Item queries
         AV::ScriptUtils::addFunction(vm, isItemHovered, "isItemHovered", -1, ".i");
