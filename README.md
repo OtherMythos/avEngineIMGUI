@@ -412,6 +412,42 @@ The [build workflow](.github/workflows/build.yml) builds Debug and Release binar
 
 The `distribution` job assembles the artifact described in the Quick start: `bin/` with every platform binary, `plugin.cmake`, `include/AvImguiPlugin.h` and a short README. The zip is named `avImguiPlugin-<version>-<hash>.zip` (version from [Versions.h](native/plugin/src/Versions.h), hash from the commit) and extracts to a folder called `avImguiPlugin`, so it drops straight into a project's `plugins/` with nothing to rename.
 
+The `runApiTests` job runs the test suite (below) on Linux under `xvfb` against the engine's AppImage and the freshly built plugin, publishing JUnit results.
+
+# Tests
+
+[test/](test/) holds an integration test suite that drives every `_imgui`
+function against a live engine, using the same [avTools](https://github.com/OtherMythos/avTools)
+test runner as the engine and ProceduralExplorationGame. Each of the ~16 test
+cases (`test/integration/Api/*`) covers one area of the api — widgets, value
+round-tripping, tables, popups, the ~245 constants, argument validation, and so
+on — and asserts real behaviour, not just the absence of a crash: a value widget
+must return exactly what went in, an untouched button must report no click, a
+bad call must raise a squirrel error rather than take the engine down.
+
+Run it against a local `TEST_MODE` engine build with a locally built plugin:
+
+```bash
+# build the plugin first (see Building), then stage it where the tests look:
+mkdir -p test/plugins
+cp native/build/plugin/libAvImguiPlugin.so test/plugins/
+
+python /path/to/avTools/testRunner/testRunner.py \
+    -e /path/to/avEngine/build/Debug/av.app/Contents/MacOS/av \
+    -p test/avTests.cfg
+```
+
+The harness ([test/testSetup.nut](test/testSetup.nut)) runs one test per
+rendered frame, so each test gets a fresh imgui frame and frame-dependent
+behaviour (like `isFirstUpdateOfFrame`) is exercised naturally.
+
+Two imgui usage rules the suite documents, because breaking either raises an
+imgui assertion that stops the engine rather than a recoverable error:
+
+- A widget label may not be empty; use `##hidden` for an id without a visible label.
+- `setCursorPos` past the window edge must be followed by an item (e.g. `text`)
+  so imgui can grow the window to fit.
+
 # Architecture notes
 
 - `native/plugin/src/ImguiOgre/` is a baked-in copy of the renderer from [ogre-next-imgui](https://github.com/edherbert/ogre-next-imgui), ported to imgui 1.92 (texture id api, event based input) and re-architected to render from a compositor pass instead of a frame listener. The imgui shaders for Metal, Vulkan, D3D11 and OpenGL are embedded as source strings, so no resource files are required.

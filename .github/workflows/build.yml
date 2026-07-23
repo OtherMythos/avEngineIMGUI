@@ -210,3 +210,63 @@ jobs:
           name: avImguiPlugin-${{ steps.dist.outputs.version }}-${{ steps.dist.outputs.hash }}
           # The parent dir, so the archive keeps the avImguiPlugin/ folder.
           path: /tmp/dist
+
+  runApiTests:
+    needs: buildLinux
+    runs-on: ubuntu-24.04
+    permissions:
+      checks: write
+      pull-requests: write
+    strategy:
+      matrix:
+        buildType: [Debug, Release]
+
+    steps:
+      - name: Setup OpenGL and xvfb
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mesa-utils xvfb fuse libfuse2
+      - name: Download the engine AppImage
+        uses: dawidd6/action-download-artifact@v8
+        with:
+          name: av-x86_64-${{ matrix.buildType }}.AppImage
+          repo: OtherMythos/avEngine
+          workflow: buildLinux.yml
+      - name: Checkout plugin repo
+        uses: actions/checkout@v6
+        with:
+          path: ./checkout
+      - name: Checkout avTools
+        uses: actions/checkout@v6
+        with:
+          path: ./avTools
+          repository: OtherMythos/avTools
+      - name: Download the built Linux plugin
+        uses: actions/download-artifact@v4
+        with:
+          name: libAvImguiPlugin_${{ matrix.buildType }}-linux-x86_64.so
+      - name: Stage the plugin for the tests
+        run: |
+          mkdir -p checkout/test/plugins
+          cp libAvImguiPlugin_${{ matrix.buildType }}-linux-x86_64.so checkout/test/plugins/
+      - name: Run the API tests
+        run: |
+          chmod +x ./av-x86_64.AppImage
+          mkdir /tmp/testLogs
+          xvfb-run python avTools/testRunner/testRunner.py \
+            -l /tmp/testLogs \
+            -e ./av-x86_64.AppImage \
+            -p checkout/test/avTests.cfg \
+            -o /home/runner/work/results.xml
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: |
+            /home/runner/work/results.xml
+      - name: Upload test logs
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: apiTestLogs-${{ matrix.buildType }}
+          path: /tmp/testLogs

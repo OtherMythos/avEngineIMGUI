@@ -503,6 +503,12 @@ namespace AVImgui{
             IMGUI_FRAME_GUARD
             const SQChar* label;
             sq_getstring(vm, 2, &label);
+            //Checked before reading, so an oversized array is an error rather
+            //than being silently truncated to the first four elements.
+            SQInteger arraySize = sq_getsize(vm, 3);
+            if(arraySize < 1 || arraySize > 4){
+                return sq_throwerror(vm, "sliderFloatN expects an array of 1 to 4 numbers.");
+            }
             float values[4];
             int count = readFloatArray(vm, 3, values, 4);
             SQFloat minVal, maxVal;
@@ -623,6 +629,9 @@ namespace AVImgui{
             IMGUI_FRAME_GUARD
             const SQChar* label;
             sq_getstring(vm, 2, &label);
+            if(sq_getsize(vm, 3) < 3){
+                return sq_throwerror(vm, "colorEdit3 expects an array of 3 numbers.");
+            }
             float col[3] = {0, 0, 0};
             readFloatArray(vm, 3, col, 3);
             ImGuiColorEditFlags flags = (ImGuiColorEditFlags)getIntOr(vm, 4, 0);
@@ -635,6 +644,9 @@ namespace AVImgui{
             IMGUI_FRAME_GUARD
             const SQChar* label;
             sq_getstring(vm, 2, &label);
+            if(sq_getsize(vm, 3) < 4){
+                return sq_throwerror(vm, "colorEdit4 expects an array of 4 numbers.");
+            }
             float col[4] = {0, 0, 0, 1};
             readFloatArray(vm, 3, col, 4);
             ImGuiColorEditFlags flags = (ImGuiColorEditFlags)getIntOr(vm, 4, 0);
@@ -1190,42 +1202,42 @@ namespace AVImgui{
 
     void ImguiNamespace::setupNamespace(HSQUIRRELVM vm){
         //Demo, misc
-        AV::ScriptUtils::addFunction(vm, showDemoWindow, "showDemoWindow");
-        AV::ScriptUtils::addFunction(vm, showMetricsWindow, "showMetricsWindow");
-        AV::ScriptUtils::addFunction(vm, getVersion, "getVersion");
-        AV::ScriptUtils::addFunction(vm, getTime, "getTime");
-        AV::ScriptUtils::addFunction(vm, getFrameCount, "getFrameCount");
-        AV::ScriptUtils::addFunction(vm, getFramerate, "getFramerate");
-        AV::ScriptUtils::addFunction(vm, getDeltaTime, "getDeltaTime");
-        AV::ScriptUtils::addFunction(vm, getDisplaySize, "getDisplaySize");
-        AV::ScriptUtils::addFunction(vm, wantCaptureMouse, "wantCaptureMouse");
-        AV::ScriptUtils::addFunction(vm, wantCaptureKeyboard, "wantCaptureKeyboard");
-        AV::ScriptUtils::addFunction(vm, wantTextInput, "wantTextInput");
-        AV::ScriptUtils::addFunction(vm, isFirstUpdateOfFrame, "isFirstUpdateOfFrame");
+        AV::ScriptUtils::addFunction(vm, showDemoWindow, "showDemoWindow", 1, ".");
+        AV::ScriptUtils::addFunction(vm, showMetricsWindow, "showMetricsWindow", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getVersion, "getVersion", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getTime, "getTime", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getFrameCount, "getFrameCount", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getFramerate, "getFramerate", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getDeltaTime, "getDeltaTime", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getDisplaySize, "getDisplaySize", 1, ".");
+        AV::ScriptUtils::addFunction(vm, wantCaptureMouse, "wantCaptureMouse", 1, ".");
+        AV::ScriptUtils::addFunction(vm, wantCaptureKeyboard, "wantCaptureKeyboard", 1, ".");
+        AV::ScriptUtils::addFunction(vm, wantTextInput, "wantTextInput", 1, ".");
+        AV::ScriptUtils::addFunction(vm, isFirstUpdateOfFrame, "isFirstUpdateOfFrame", 1, ".");
         AV::ScriptUtils::addFunction(vm, setRenderingEnabled, "setRenderingEnabled", 2, ".b");
-        AV::ScriptUtils::addFunction(vm, createOverlayWorkspace, "createOverlayWorkspace");
-        AV::ScriptUtils::addFunction(vm, destroyOverlayWorkspace, "destroyOverlayWorkspace");
+        AV::ScriptUtils::addFunction(vm, createOverlayWorkspace, "createOverlayWorkspace", 1, ".");
+        AV::ScriptUtils::addFunction(vm, destroyOverlayWorkspace, "destroyOverlayWorkspace", 1, ".");
         AV::ScriptUtils::addFunction(vm, setAutoOverlayEnabled, "setAutoOverlayEnabled", 2, ".b");
-        AV::ScriptUtils::addFunction(vm, getAutoOverlayEnabled, "getAutoOverlayEnabled");
+        AV::ScriptUtils::addFunction(vm, getAutoOverlayEnabled, "getAutoOverlayEnabled", 1, ".");
 
         //Windows
         AV::ScriptUtils::addFunction(vm, begin, "begin", -2, ".si");
-        AV::ScriptUtils::addFunction(vm, end, "end");
+        AV::ScriptUtils::addFunction(vm, end, "end", 1, ".");
         AV::ScriptUtils::addFunction(vm, beginChild, "beginChild", -2, ".snnii");
-        AV::ScriptUtils::addFunction(vm, endChild, "endChild");
+        AV::ScriptUtils::addFunction(vm, endChild, "endChild", 1, ".");
         AV::ScriptUtils::addFunction(vm, setNextWindowPos, "setNextWindowPos", -3, ".nninn");
         AV::ScriptUtils::addFunction(vm, setNextWindowSize, "setNextWindowSize", -3, ".nni");
         AV::ScriptUtils::addFunction(vm, setNextWindowCollapsed, "setNextWindowCollapsed", -2, ".bi");
-        AV::ScriptUtils::addFunction(vm, setNextWindowFocus, "setNextWindowFocus");
+        AV::ScriptUtils::addFunction(vm, setNextWindowFocus, "setNextWindowFocus", 1, ".");
         AV::ScriptUtils::addFunction(vm, setNextWindowBgAlpha, "setNextWindowBgAlpha", 2, ".n");
-        AV::ScriptUtils::addFunction(vm, getWindowPos, "getWindowPos");
-        AV::ScriptUtils::addFunction(vm, getWindowSize, "getWindowSize");
-        AV::ScriptUtils::addFunction(vm, getWindowWidth, "getWindowWidth");
-        AV::ScriptUtils::addFunction(vm, getWindowHeight, "getWindowHeight");
-        AV::ScriptUtils::addFunction(vm, getContentRegionAvail, "getContentRegionAvail");
+        AV::ScriptUtils::addFunction(vm, getWindowPos, "getWindowPos", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getWindowSize, "getWindowSize", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getWindowWidth, "getWindowWidth", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getWindowHeight, "getWindowHeight", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getContentRegionAvail, "getContentRegionAvail", 1, ".");
         AV::ScriptUtils::addFunction(vm, isWindowHovered, "isWindowHovered", -1, ".i");
         AV::ScriptUtils::addFunction(vm, isWindowFocused, "isWindowFocused", -1, ".i");
-        AV::ScriptUtils::addFunction(vm, isWindowCollapsed, "isWindowCollapsed");
+        AV::ScriptUtils::addFunction(vm, isWindowCollapsed, "isWindowCollapsed", 1, ".");
 
         //Text
         AV::ScriptUtils::addFunction(vm, text, "text", 2, ".s");
@@ -1245,7 +1257,7 @@ namespace AVImgui{
         AV::ScriptUtils::addFunction(vm, radioButton, "radioButton", 3, ".sb");
         AV::ScriptUtils::addFunction(vm, selectable, "selectable", -2, ".sbinn");
         AV::ScriptUtils::addFunction(vm, progressBar, "progressBar", -2, ".nnns|o");
-        AV::ScriptUtils::addFunction(vm, bullet, "bullet");
+        AV::ScriptUtils::addFunction(vm, bullet, "bullet", 1, ".");
 
         //Value widgets
         AV::ScriptUtils::addFunction(vm, sliderFloat, "sliderFloat", -5, ".snnns|oi");
@@ -1265,65 +1277,65 @@ namespace AVImgui{
         //Trees
         AV::ScriptUtils::addFunction(vm, treeNode, "treeNode", 2, ".s");
         AV::ScriptUtils::addFunction(vm, treeNodeEx, "treeNodeEx", -2, ".si");
-        AV::ScriptUtils::addFunction(vm, treePop, "treePop");
+        AV::ScriptUtils::addFunction(vm, treePop, "treePop", 1, ".");
         AV::ScriptUtils::addFunction(vm, collapsingHeader, "collapsingHeader", -2, ".si");
         AV::ScriptUtils::addFunction(vm, setNextItemOpen, "setNextItemOpen", -2, ".bi");
 
         //Layout
         AV::ScriptUtils::addFunction(vm, sameLine, "sameLine", -1, ".nn");
-        AV::ScriptUtils::addFunction(vm, newLine, "newLine");
-        AV::ScriptUtils::addFunction(vm, spacing, "spacing");
-        AV::ScriptUtils::addFunction(vm, separator, "separator");
+        AV::ScriptUtils::addFunction(vm, newLine, "newLine", 1, ".");
+        AV::ScriptUtils::addFunction(vm, spacing, "spacing", 1, ".");
+        AV::ScriptUtils::addFunction(vm, separator, "separator", 1, ".");
         AV::ScriptUtils::addFunction(vm, dummy, "dummy", 3, ".nn");
         AV::ScriptUtils::addFunction(vm, indent, "indent", -1, ".n");
         AV::ScriptUtils::addFunction(vm, unindent, "unindent", -1, ".n");
-        AV::ScriptUtils::addFunction(vm, beginGroup, "beginGroup");
-        AV::ScriptUtils::addFunction(vm, endGroup, "endGroup");
-        AV::ScriptUtils::addFunction(vm, alignTextToFramePadding, "alignTextToFramePadding");
+        AV::ScriptUtils::addFunction(vm, beginGroup, "beginGroup", 1, ".");
+        AV::ScriptUtils::addFunction(vm, endGroup, "endGroup", 1, ".");
+        AV::ScriptUtils::addFunction(vm, alignTextToFramePadding, "alignTextToFramePadding", 1, ".");
         AV::ScriptUtils::addFunction(vm, setNextItemWidth, "setNextItemWidth", 2, ".n");
         AV::ScriptUtils::addFunction(vm, pushItemWidth, "pushItemWidth", 2, ".n");
-        AV::ScriptUtils::addFunction(vm, popItemWidth, "popItemWidth");
-        AV::ScriptUtils::addFunction(vm, getCursorPosX, "getCursorPosX");
-        AV::ScriptUtils::addFunction(vm, getCursorPosY, "getCursorPosY");
+        AV::ScriptUtils::addFunction(vm, popItemWidth, "popItemWidth", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getCursorPosX, "getCursorPosX", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getCursorPosY, "getCursorPosY", 1, ".");
         AV::ScriptUtils::addFunction(vm, setCursorPos, "setCursorPos", 3, ".nn");
-        AV::ScriptUtils::addFunction(vm, getCursorScreenPos, "getCursorScreenPos");
+        AV::ScriptUtils::addFunction(vm, getCursorScreenPos, "getCursorScreenPos", 1, ".");
         AV::ScriptUtils::addFunction(vm, calcTextSize, "calcTextSize", -2, ".sn");
-        AV::ScriptUtils::addFunction(vm, getFrameHeight, "getFrameHeight");
+        AV::ScriptUtils::addFunction(vm, getFrameHeight, "getFrameHeight", 1, ".");
         AV::ScriptUtils::addFunction(vm, beginDisabled, "beginDisabled", -1, ".b");
-        AV::ScriptUtils::addFunction(vm, endDisabled, "endDisabled");
+        AV::ScriptUtils::addFunction(vm, endDisabled, "endDisabled", 1, ".");
 
         //Menus, tabs
-        AV::ScriptUtils::addFunction(vm, beginMenuBar, "beginMenuBar");
-        AV::ScriptUtils::addFunction(vm, endMenuBar, "endMenuBar");
-        AV::ScriptUtils::addFunction(vm, beginMainMenuBar, "beginMainMenuBar");
-        AV::ScriptUtils::addFunction(vm, endMainMenuBar, "endMainMenuBar");
+        AV::ScriptUtils::addFunction(vm, beginMenuBar, "beginMenuBar", 1, ".");
+        AV::ScriptUtils::addFunction(vm, endMenuBar, "endMenuBar", 1, ".");
+        AV::ScriptUtils::addFunction(vm, beginMainMenuBar, "beginMainMenuBar", 1, ".");
+        AV::ScriptUtils::addFunction(vm, endMainMenuBar, "endMainMenuBar", 1, ".");
         AV::ScriptUtils::addFunction(vm, beginMenu, "beginMenu", -2, ".sb");
-        AV::ScriptUtils::addFunction(vm, endMenu, "endMenu");
+        AV::ScriptUtils::addFunction(vm, endMenu, "endMenu", 1, ".");
         AV::ScriptUtils::addFunction(vm, menuItem, "menuItem", -2, ".ss|obb");
         AV::ScriptUtils::addFunction(vm, beginTabBar, "beginTabBar", -2, ".si");
-        AV::ScriptUtils::addFunction(vm, endTabBar, "endTabBar");
+        AV::ScriptUtils::addFunction(vm, endTabBar, "endTabBar", 1, ".");
         AV::ScriptUtils::addFunction(vm, beginTabItem, "beginTabItem", -2, ".si");
-        AV::ScriptUtils::addFunction(vm, endTabItem, "endTabItem");
+        AV::ScriptUtils::addFunction(vm, endTabItem, "endTabItem", 1, ".");
 
         //Tables
         AV::ScriptUtils::addFunction(vm, beginTable, "beginTable", -3, ".siinn");
-        AV::ScriptUtils::addFunction(vm, endTable, "endTable");
+        AV::ScriptUtils::addFunction(vm, endTable, "endTable", 1, ".");
         AV::ScriptUtils::addFunction(vm, tableNextRow, "tableNextRow", -1, ".in");
-        AV::ScriptUtils::addFunction(vm, tableNextColumn, "tableNextColumn");
+        AV::ScriptUtils::addFunction(vm, tableNextColumn, "tableNextColumn", 1, ".");
         AV::ScriptUtils::addFunction(vm, tableSetColumnIndex, "tableSetColumnIndex", 2, ".i");
         AV::ScriptUtils::addFunction(vm, tableSetupColumn, "tableSetupColumn", -2, ".sin");
-        AV::ScriptUtils::addFunction(vm, tableHeadersRow, "tableHeadersRow");
+        AV::ScriptUtils::addFunction(vm, tableHeadersRow, "tableHeadersRow", 1, ".");
 
         //Popups, tooltips
         AV::ScriptUtils::addFunction(vm, openPopup, "openPopup", -2, ".si");
         AV::ScriptUtils::addFunction(vm, beginPopup, "beginPopup", -2, ".si");
         AV::ScriptUtils::addFunction(vm, beginPopupModal, "beginPopupModal", -2, ".si");
-        AV::ScriptUtils::addFunction(vm, endPopup, "endPopup");
-        AV::ScriptUtils::addFunction(vm, closeCurrentPopup, "closeCurrentPopup");
+        AV::ScriptUtils::addFunction(vm, endPopup, "endPopup", 1, ".");
+        AV::ScriptUtils::addFunction(vm, closeCurrentPopup, "closeCurrentPopup", 1, ".");
         AV::ScriptUtils::addFunction(vm, isPopupOpen, "isPopupOpen", -2, ".si");
-        AV::ScriptUtils::addFunction(vm, beginTooltip, "beginTooltip");
-        AV::ScriptUtils::addFunction(vm, beginItemTooltip, "beginItemTooltip");
-        AV::ScriptUtils::addFunction(vm, endTooltip, "endTooltip");
+        AV::ScriptUtils::addFunction(vm, beginTooltip, "beginTooltip", 1, ".");
+        AV::ScriptUtils::addFunction(vm, beginItemTooltip, "beginItemTooltip", 1, ".");
+        AV::ScriptUtils::addFunction(vm, endTooltip, "endTooltip", 1, ".");
         AV::ScriptUtils::addFunction(vm, setTooltip, "setTooltip", 2, ".s");
 
         //Plots
@@ -1332,20 +1344,20 @@ namespace AVImgui{
 
         //Item queries
         AV::ScriptUtils::addFunction(vm, isItemHovered, "isItemHovered", -1, ".i");
-        AV::ScriptUtils::addFunction(vm, isItemActive, "isItemActive");
+        AV::ScriptUtils::addFunction(vm, isItemActive, "isItemActive", 1, ".");
         AV::ScriptUtils::addFunction(vm, isItemClicked, "isItemClicked", -1, ".i");
-        AV::ScriptUtils::addFunction(vm, isItemEdited, "isItemEdited");
-        AV::ScriptUtils::addFunction(vm, isItemActivated, "isItemActivated");
-        AV::ScriptUtils::addFunction(vm, isItemDeactivated, "isItemDeactivated");
-        AV::ScriptUtils::addFunction(vm, isItemDeactivatedAfterEdit, "isItemDeactivatedAfterEdit");
-        AV::ScriptUtils::addFunction(vm, isAnyItemActive, "isAnyItemActive");
-        AV::ScriptUtils::addFunction(vm, isAnyItemHovered, "isAnyItemHovered");
-        AV::ScriptUtils::addFunction(vm, setItemDefaultFocus, "setItemDefaultFocus");
+        AV::ScriptUtils::addFunction(vm, isItemEdited, "isItemEdited", 1, ".");
+        AV::ScriptUtils::addFunction(vm, isItemActivated, "isItemActivated", 1, ".");
+        AV::ScriptUtils::addFunction(vm, isItemDeactivated, "isItemDeactivated", 1, ".");
+        AV::ScriptUtils::addFunction(vm, isItemDeactivatedAfterEdit, "isItemDeactivatedAfterEdit", 1, ".");
+        AV::ScriptUtils::addFunction(vm, isAnyItemActive, "isAnyItemActive", 1, ".");
+        AV::ScriptUtils::addFunction(vm, isAnyItemHovered, "isAnyItemHovered", 1, ".");
+        AV::ScriptUtils::addFunction(vm, setItemDefaultFocus, "setItemDefaultFocus", 1, ".");
         AV::ScriptUtils::addFunction(vm, setKeyboardFocusHere, "setKeyboardFocusHere", -1, ".i");
 
         //ID, style
         AV::ScriptUtils::addFunction(vm, pushId, "pushId", 2, ".s|i");
-        AV::ScriptUtils::addFunction(vm, popId, "popId");
+        AV::ScriptUtils::addFunction(vm, popId, "popId", 1, ".");
         AV::ScriptUtils::addFunction(vm, pushStyleColor, "pushStyleColor", 6, ".innnn");
         AV::ScriptUtils::addFunction(vm, popStyleColor, "popStyleColor", -1, ".i");
         AV::ScriptUtils::addFunction(vm, pushStyleVar, "pushStyleVar", -3, ".inn");
