@@ -126,7 +126,7 @@ compositor_node myNode{
 
 ## Input
 
-The plugin observes the engine's SDL event stream directly (mouse position, buttons, wheel, keyboard, text input), so the full imgui interaction model works, including text fields. Two things to be aware of:
+The plugin reads input from the engine's `InputManager` each frame (mouse position, buttons, wheel, and keyboard). It deliberately does **not** call SDL: the engine links SDL statically and does not re-export it, so a plugin that called SDL directly would fail to load (this is why input is polled rather than taken from an SDL event watch). Because it goes through `InputManager`, input driven programmatically — e.g. via the engine's debug server — reaches imgui too.
 
 - Input is *observed*, not consumed: clicks over an imgui window still reach the engine's own input system. Game code which should ignore input while the gui is using it can check:
 
@@ -136,7 +136,8 @@ if(_imgui.wantCaptureMouse()){
 }
 ```
 
-- `wantCaptureKeyboard()` and `wantTextInput()` work the same way for the keyboard. While an imgui text field is active the plugin enables SDL text input itself; disabling it again is left to the engine's own gui focus handling.
+- `wantCaptureKeyboard()` and `wantTextInput()` are the keyboard equivalents.
+- **Text fields** work for typed ASCII on a US keyboard layout. Character input is reconstructed from key state (the engine exposes no text-input channel to plugins), so it does not follow other layouts or an OS input method. Navigation and editing keys (arrows, home/end, backspace, delete, enter) work regardless of layout.
 
 ---
 
@@ -452,7 +453,7 @@ imgui assertion that stops the engine rather than a recoverable error:
 
 - `native/plugin/src/ImguiOgre/` is a baked-in copy of the renderer from [ogre-next-imgui](https://github.com/edherbert/ogre-next-imgui), ported to imgui 1.92 (texture id api, event based input) and re-architected to render from a compositor pass instead of a frame listener. The imgui shaders for Metal, Vulkan, D3D11 and OpenGL are embedded as source strings, so no resource files are required.
 - `native/plugin/src/Compositor/` implements the `imgui` custom pass and the delegating pass provider.
-- `native/plugin/src/Input/ImguiInput.cpp` installs an `SDL_AddEventWatch` to observe the event stream the engine pumps, translating events into imgui's io queue. This is what makes text input work without engine changes.
+- `native/plugin/src/Input/ImguiInput.cpp` polls the engine's `InputManager` each frame and feeds imgui's io queue. It uses only the SDL scancode enum (a compile-time constant), never an SDL runtime symbol, because the engine links SDL statically without re-exporting it — a plugin that called SDL would fail to load on Linux.
 - `native/plugin/src/Scripting/` contains the `_imgui` namespace bindings and constants.
 
 # License

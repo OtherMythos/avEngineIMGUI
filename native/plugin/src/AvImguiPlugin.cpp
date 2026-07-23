@@ -114,7 +114,8 @@ namespace AVImgui{
             createOverlayWorkspace();
         }
 
-        ImguiInput::applyTextInputState();
+        //Poll engine input into imgui before the frame is begun.
+        ImguiInput::update();
     }
 
     bool AvImguiPlugin::createOverlayWorkspace(){

@@ -40,11 +40,12 @@ if(NOT STATIC_ONLY)
             PATH_SUFFIXES lib
         )
 
+        #No SDL here: the plugin uses only the SDL scancode enum (compile time),
+        #not any SDL runtime symbol, and takes all its input through the engine.
         target_link_libraries(${PROJECT_NAME}
             ${Squirrel_STD_LIBRARY}
             ${Squirrel_LIBRARY}
             ${Ogre_LIBRARY}
-            ${SDL2_LIBRARIES}
             ${LIB_AVCORE}
         )
     endif()

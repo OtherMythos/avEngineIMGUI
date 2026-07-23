@@ -2,35 +2,35 @@
 
 #include "imgui.h"
 
-#include <SDL.h>
-
 namespace AVImgui{
 
     /**
-    Feeds SDL input events into Dear ImGui.
+    Feeds engine input into Dear ImGui.
 
-    The engine does not forward raw SDL events (in particular text input) to
-    plugins, so an SDL event watch is installed to observe the event stream as
-    the engine pumps it. Events are translated into the imgui io event queue.
+    The engine statically links SDL and does not re-export its symbols, so a
+    plugin cannot call SDL directly (it fails to load on Linux). Instead this
+    polls the engine's InputManager once per imgui frame and translates the
+    state into imgui's io. Only the SDL *scancode* enum is used, which is a
+    compile-time constant and needs no SDL runtime symbol.
+
+    Consequences of polling rather than watching the event stream:
+    - Mouse (position, buttons, wheel) and keyboard keys work fully.
+    - Text input is reconstructed from key state for a US keyboard layout, so
+      typing into an imgui text field works for ASCII but does not follow other
+      layouts or the OS input method.
     */
     class ImguiInput{
     public:
         ImguiInput() = delete;
 
-        //Install the SDL event watch. Call after the imgui context exists.
         static void initialise();
         static void shutdown();
 
-        /**
-        Ensure SDL text input is active while imgui wants text input.
-        The engine enables/disables SDL text input based on its own gui focus,
-        so this is re-checked at the start of each imgui frame.
-        */
-        static void applyTextInputState();
+        //Poll the engine input and push it into imgui. Called once per imgui
+        //frame, before ImGui::NewFrame().
+        static void update();
 
     private:
-        static int SDLCALL eventWatch(void* userdata, SDL_Event* event);
-        static ImGuiKey keyEventToImGuiKey(SDL_Keycode keycode, SDL_Scancode scancode);
-        static void updateKeyModifiers(SDL_Keymod sdlKeyMods);
+        static ImGuiKey scancodeToImGuiKey(int scancode);
     };
 }
