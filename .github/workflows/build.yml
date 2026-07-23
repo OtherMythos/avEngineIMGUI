@@ -170,6 +170,9 @@ jobs:
   distribution:
     needs: [buildLinux, buildMacOS, buildWindows, buildIOS]
     runs-on: ubuntu-24.04
+    outputs:
+      # Exposed so runApiTests can download this exact artifact by name.
+      artifactName: avImguiPlugin-${{ steps.dist.outputs.version }}-${{ steps.dist.outputs.hash }}
 
     steps:
       - name: Checkout
@@ -212,7 +215,9 @@ jobs:
           path: /tmp/dist
 
   runApiTests:
-    needs: buildLinux
+    # Runs against the assembled distribution artifact, so the tests exercise
+    # exactly what ships rather than a loose binary.
+    needs: distribution
     runs-on: ubuntu-24.04
     permissions:
       checks: write
@@ -241,14 +246,13 @@ jobs:
         with:
           path: ./avTools
           repository: OtherMythos/avTools
-      - name: Download the built Linux plugin
+      - name: Download and extract the distribution
         uses: actions/download-artifact@v4
         with:
-          name: libAvImguiPlugin_${{ matrix.buildType }}-linux-x86_64.so
-      - name: Stage the plugin for the tests
-        run: |
-          mkdir -p checkout/test/plugins
-          cp libAvImguiPlugin_${{ matrix.buildType }}-linux-x86_64.so checkout/test/plugins/
+          name: ${{ needs.distribution.outputs.artifactName }}
+          path: checkout/plugins
+      - name: Show the staged distribution
+        run: ls -R checkout/plugins
       - name: Run the API tests
         run: |
           chmod +x ./av-x86_64.AppImage

@@ -21,3 +21,5 @@ avTestFile.txt
 test/plugins/
 Ogre.log
 av.log
+
+plugins/
