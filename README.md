@@ -39,7 +39,7 @@ myProject/
 
 The engine picks the correct binary out of `bin/` by platform, architecture and build type, so one directory holds every variant. Only `bin/` matters on desktop.
 
-imgui remembers window positions in an `imgui.ini` written to the working directory at runtime, so it is worth adding to a project's `.gitignore`.
+The plugin disables imgui's settings persistence (`io.IniFilename`), so it never writes an `imgui.ini` into the working directory. Window positions therefore come from the script each run rather than being remembered — use `setNextWindowPos`/`setNextWindowSize` with `Cond_FirstUseEver` to place a window without pinning it every frame.
 
 2. Register the plugin in `avSetup.cfg`:
 

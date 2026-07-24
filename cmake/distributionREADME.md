@@ -62,6 +62,7 @@ Then build the engine with `-DUSE_STATIC_PLUGINS=True -DAV_PROJECT_DIR=<project>
 
 ## Notes
 
-- imgui writes an `imgui.ini` (window positions) into the working directory — worth
-  adding to a project's `.gitignore`.
+- imgui's settings persistence is disabled, so no `imgui.ini` is written and window
+  positions are not remembered between runs. Place windows from script with
+  `setNextWindowPos`/`setNextWindowSize`.
 - Full API reference and source: https://github.com/OtherMythos/avEngineIMGUI

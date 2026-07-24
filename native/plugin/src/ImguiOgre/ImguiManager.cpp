@@ -593,6 +593,10 @@ namespace AVImgui{
         ImGuiIO& io = ImGui::GetIO();
         io.BackendPlatformName = "imgui_impl_avengine";
         io.BackendRendererName = "imgui_impl_ogre_next";
+        //No settings persistence: imgui would otherwise write an imgui.ini of
+        //window positions into the working directory of whatever loads the
+        //plugin.
+        io.IniFilename = 0;
         unsigned char* pixels;
         int width, height;
 
