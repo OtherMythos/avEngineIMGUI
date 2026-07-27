@@ -206,6 +206,8 @@ jobs:
           cp native/plugin/src/AvImguiPlugin.h $DIST/include/
           cp cmake/distributionREADME.md $DIST/README.md
           printf '\nBuilt from version %s, commit %s.\n' "$VERSION" "$GIT_HASH" >> $DIST/README.md
+          # The engine reads this to discover the plugin and what it is called.
+          sed "s/@VERSION@/${VERSION}/" cmake/distributionAvPlugin.cfg > $DIST/avPlugin.cfg
           ls -R /tmp/dist
       - name: Upload distribution
         uses: actions/upload-artifact@v6

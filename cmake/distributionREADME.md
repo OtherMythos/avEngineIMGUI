@@ -15,14 +15,16 @@ directory, so it sits at `plugins/avImguiPlugin/`.
 | `bin/lib*_ios_static_*.a` | Static library for platforms that can't load shared libraries. |
 | `plugin.cmake` | Links that static library into an engine build. |
 | `include/AvImguiPlugin.h` | The plugin class, for a project's `StaticPlugins.h`. |
+| `avPlugin.cfg` | Describes the plugin to the engine. |
 
 ## Use it
 
-Point the project's `avSetup.cfg` at `bin/`:
+Point the project's `avSetup.cfg` at this directory. The engine reads the `avPlugin.cfg` inside
+it to work out what to load:
 
 ```json
 "Plugins": [
-    { "name": "AvImguiPlugin", "path": "res://plugins/avImguiPlugin/bin" }
+    "res://plugins/avImguiPlugin"
 ]
 ```
 
