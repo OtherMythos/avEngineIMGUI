@@ -519,7 +519,14 @@ namespace AVImgui{
         if (!pixelShaderMetal) {
             pixelShaderMetal = mgr.createProgram("imgui/FP/Metal", Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME,
                                                 "metal", Ogre::GPT_FRAGMENT_PROGRAM);
-            vertexShaderMetal->setParameter("entry_point", "fragment_main");
+            //Must match the function name in fragmentShaderSrcMetal below.
+            pixelShaderMetal->setParameter("entry_point", "main_metal");
+            //The fragment shader only samples a texture and binds no named
+            //constants (the ProjectionMatrix lives on the vertex program), so
+            //there is nothing for Metal's reflection to build here. Without
+            //this, Ogre warns on every load because a fragment program without
+            //a shader_reflection_pair_hint is otherwise assumed to be missing one.
+            pixelShaderMetal->setBuildParametersFromReflection(false);
             pixelShaderMetal->setSource(fragmentShaderSrcMetal);
             pixelShaderMetal->load();
             pixelShaderPtr->addDelegateProgram(pixelShaderMetal->getName());
