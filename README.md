@@ -94,6 +94,8 @@ The plugin renders through a custom compositor pass with the custom id `imgui`. 
 
 By default nothing needs configuring. The first frame which actually uses imgui creates an overlay workspace (`avImgui/Workspace`) that draws the gui over whatever has already been rendered. Because Ogre appends new workspaces, the overlay always executes after the workspaces that exist at that moment — so this works whether the project uses the engine's default compositor or builds its own workspaces from script during `start()`.
 
+The overlay targets `AV::Window::getRenderTexture()`, which is the window's backbuffer normally and an offscreen texture when the engine runs with `--headless`. It is deliberately not `getRenderWindow()->getTexture()`: headless the Ogre window is only a small bootstrap for the render system and cannot be rendered into.
+
 Two cases need attention:
 
 - **Workspaces created after imgui is first used.** A workspace added later executes after the overlay and would draw over the gui. Recreate the overlay so it goes last again:

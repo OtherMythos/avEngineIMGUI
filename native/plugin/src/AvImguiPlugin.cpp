@@ -69,7 +69,10 @@ namespace AVImgui{
         compositorManager->setCompositorPassProvider(mProvider);
 
         Ogre::SceneManager* sceneManager = AV::BaseSingleton::getSceneManager();
-        Ogre::TextureGpu* windowTexture = AV::BaseSingleton::getWindow()->getRenderWindow()->getTexture();
+        //getRenderTexture rather than getRenderWindow()->getTexture(): headless the Ogre
+        //window is only a bootstrap for the render system and must never be rendered to,
+        //so the engine's final image lives in a separate offscreen texture.
+        Ogre::TextureGpu* windowTexture = AV::BaseSingleton::getWindow()->getRenderTexture();
 
         ImguiManager::createSingleton();
         ImguiManager::getSingletonPtr()->init(sceneManager, windowTexture);
@@ -124,7 +127,9 @@ namespace AVImgui{
         Ogre::Root* root = Ogre::Root::getSingletonPtr();
         Ogre::CompositorManager2* compositorManager = root->getCompositorManager2();
         Ogre::SceneManager* sceneManager = AV::BaseSingleton::getSceneManager();
-        Ogre::TextureGpu* windowTexture = AV::BaseSingleton::getWindow()->getRenderWindow()->getTexture();
+        //@see initialise: this is the engine's final render target, which headless is not
+        //the Ogre window's texture.
+        Ogre::TextureGpu* windowTexture = AV::BaseSingleton::getWindow()->getRenderTexture();
 
         //The workspace requires a camera even though the imgui pass never
         //reads it. A dedicated one keeps the plugin decoupled from the
