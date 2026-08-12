@@ -3,6 +3,9 @@
 #include "Scripting/ScriptNamespace/ScriptUtils.h"
 
 #include "imgui.h"
+//For ImGuiDockNodeFlags_DockSpace, which the dock builder needs and which imgui
+//keeps with the rest of the builder in the internal api.
+#include "imgui_internal.h"
 
 namespace AVImgui{
 
@@ -50,6 +53,9 @@ namespace AVImgui{
             {"DockNodeFlags_NoResize", ImGuiDockNodeFlags_NoResize},
             {"DockNodeFlags_AutoHideTabBar", ImGuiDockNodeFlags_AutoHideTabBar},
             {"DockNodeFlags_NoUndocking", ImGuiDockNodeFlags_NoUndocking},
+            //Marks a node built by the dock builder as one a dockSpace call
+            //will adopt, rather than a floating node of its own.
+            {"DockNodeFlags_DockSpace", ImGuiDockNodeFlags_DockSpace},
 
             //ImGuiChildFlags
             {"ChildFlags_None", ImGuiChildFlags_None},

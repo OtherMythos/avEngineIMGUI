@@ -1,8 +1,14 @@
 #include "ImguiNamespace.h"
 
 #include "Scripting/ScriptNamespace/ScriptUtils.h"
+#include "Scripting/ScriptNamespace/Classes/Ogre/Graphics/TextureUserData.h"
+
+#include "OgreTextureGpu.h"
 
 #include "imgui.h"
+//The dock builder lives in the internal api, which is where imgui keeps it
+//until the layout functions settle down.
+#include "imgui_internal.h"
 
 #include "AvImguiPlugin.h"
 #include "ImguiOgre/ImguiManager.h"
@@ -452,6 +458,69 @@ namespace AVImgui{
             sq_pushbool(vm, ImGui::GetIO().ConfigDockingWithShift);
             return 1;
         }
+        //The dock builder. A dockspace on its own gives every window the same
+        //node, so they arrive as tabs on top of each other; describing a layout
+        //- this panel left, that one right, the rest in the middle - means
+        //building the nodes up front and docking windows into them by name.
+        //
+        //A layout is built once, not every frame, and the windows it names are
+        //docked whether or not they have been submitted yet.
+        SQInteger dockBuilderAddNode(HSQUIRRELVM vm){
+            ImGuiID id = sq_gettop(vm) >= 2 && sq_gettype(vm, 2) != OT_NULL ? readDockId(vm, 2) : 0;
+            ImGuiDockNodeFlags flags = (ImGuiDockNodeFlags)getIntOr(vm, 3, 0);
+            //Adding a node with the DockSpace flag creates a dockspace, and a
+            //dockspace must be named. Zero is fine for a plain node, where it
+            //means 'any id will do', but here imgui asserts and stops the
+            //engine rather than returning.
+            if(id == 0 && (flags & ImGuiDockNodeFlags_DockSpace)){
+                return sq_throwerror(vm, "dockBuilderAddNode requires a non-zero id when DockNodeFlags_DockSpace is set.");
+            }
+            sq_pushinteger(vm, (SQInteger)ImGui::DockBuilderAddNode(id, flags));
+            return 1;
+        }
+        SQInteger dockBuilderRemoveNode(HSQUIRRELVM vm){
+            ImGui::DockBuilderRemoveNode(readDockId(vm, 2));
+            return 0;
+        }
+        SQInteger dockBuilderSetNodeSize(HSQUIRRELVM vm){
+            ImGuiID id = readDockId(vm, 2);
+            SQFloat w, h;
+            sq_getfloat(vm, 3, &w);
+            sq_getfloat(vm, 4, &h);
+            ImGui::DockBuilderSetNodeSize(id, ImVec2((float)w, (float)h));
+            return 0;
+        }
+        SQInteger dockBuilderSplitNode(HSQUIRRELVM vm){
+            ImGuiID id = readDockId(vm, 2);
+            SQInteger dir;
+            sq_getinteger(vm, 3, &dir);
+            SQFloat ratio;
+            sq_getfloat(vm, 4, &ratio);
+
+            ImGuiID atDir = 0;
+            ImGuiID atOpposite = 0;
+            ImGui::DockBuilderSplitNode(id, (ImGuiDir)dir, (float)ratio, &atDir, &atOpposite);
+
+            //Both halves are returned because splitting replaces the node: the
+            //id which was split is now their parent and cannot be docked into.
+            sq_newarray(vm, 0);
+            sq_pushinteger(vm, (SQInteger)atDir);
+            sq_arrayappend(vm, -2);
+            sq_pushinteger(vm, (SQInteger)atOpposite);
+            sq_arrayappend(vm, -2);
+            return 1;
+        }
+        SQInteger dockBuilderDockWindow(HSQUIRRELVM vm){
+            const SQChar* windowName;
+            sq_getstring(vm, 2, &windowName);
+            ImGui::DockBuilderDockWindow(windowName, readDockId(vm, 3));
+            return 0;
+        }
+        SQInteger dockBuilderFinish(HSQUIRRELVM vm){
+            ImGui::DockBuilderFinish(readDockId(vm, 2));
+            return 0;
+        }
+
         SQInteger setDockingAlwaysTabBar(HSQUIRRELVM vm){
             SQBool value;
             sq_getbool(vm, 2, &value);
@@ -606,6 +675,59 @@ namespace AVImgui{
         SQInteger bullet(HSQUIRRELVM vm){
             IMGUI_FRAME_GUARD
             ImGui::Bullet();
+            return 0;
+        }
+
+        //---------------------------------------------------------------------
+        //Images
+        //---------------------------------------------------------------------
+        //Read one of the engine's texture user datas off the stack. Returns 0
+        //on success, or the result of sq_throwerror to be returned by the
+        //caller, in the style of the engine's own namespaces.
+        inline SQInteger readTexture(HSQUIRRELVM vm, SQInteger idx, Ogre::TextureGpu** outTexture){
+            bool userOwned = false;
+            bool isValid = false;
+            AV::UserDataGetResult result = AV::TextureUserData::readTextureFromUserData(vm, idx, outTexture, &userOwned, &isValid);
+            if(result != AV::USER_DATA_GET_SUCCESS){
+                return sq_throwerror(vm, AV::ScriptUtils::checkResultErrorMessage(result));
+            }
+            //A texture destroyed while script still holds the user data. The
+            //renderer would bind the dangling pointer, so this has to stop here.
+            if(!isValid || !*outTexture){
+                return sq_throwerror(vm, "The provided texture is no longer valid.");
+            }
+            return 0;
+        }
+
+        SQInteger image(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            Ogre::TextureGpu* texture = 0;
+            SQInteger readResult = readTexture(vm, 2, &texture);
+            if(readResult != 0) return readResult;
+
+            SQFloat w, h;
+            sq_getfloat(vm, 3, &w);
+            sq_getfloat(vm, 4, &h);
+            const ImVec2 size((float)w, (float)h);
+
+            //Uvs are the whole texture unless given. Flipping them is how a
+            //render target is drawn the right way up on an api which disagrees
+            //with the one the texture was rendered on.
+            const ImVec2 uv0((float)getFloatOr(vm, 5, 0.0f), (float)getFloatOr(vm, 6, 0.0f));
+            const ImVec2 uv1((float)getFloatOr(vm, 7, 1.0f), (float)getFloatOr(vm, 8, 1.0f));
+
+            //A texture which is not resident has nothing on the gpu to bind, so
+            //the renderer must not be handed it. This is a normal transient
+            //state while a texture streams in rather than a script error, so
+            //the space is still taken up and the image appears once it arrives.
+            if(texture->getResidencyStatus() != Ogre::GpuResidency::Resident){
+                ImGui::Dummy(size);
+                return 0;
+            }
+
+            //@see ImguiManager::render, which casts this straight back to an
+            //Ogre::TextureGpu* and binds it for the draw call.
+            ImGui::Image((ImTextureID)(uintptr_t)texture, size, uv0, uv1);
             return 0;
         }
 
@@ -1549,6 +1671,14 @@ namespace AVImgui{
         AV::ScriptUtils::addFunction(vm, setDockingAlwaysTabBar, "setDockingAlwaysTabBar", 2, ".b");
         AV::ScriptUtils::addFunction(vm, getDockingAlwaysTabBar, "getDockingAlwaysTabBar", 1, ".");
 
+        //Dock builder
+        AV::ScriptUtils::addFunction(vm, dockBuilderAddNode, "dockBuilderAddNode", -1, ".s|i|oi");
+        AV::ScriptUtils::addFunction(vm, dockBuilderRemoveNode, "dockBuilderRemoveNode", 2, ".s|i");
+        AV::ScriptUtils::addFunction(vm, dockBuilderSetNodeSize, "dockBuilderSetNodeSize", 4, ".s|inn");
+        AV::ScriptUtils::addFunction(vm, dockBuilderSplitNode, "dockBuilderSplitNode", 4, ".s|iin");
+        AV::ScriptUtils::addFunction(vm, dockBuilderDockWindow, "dockBuilderDockWindow", 3, ".ss|i");
+        AV::ScriptUtils::addFunction(vm, dockBuilderFinish, "dockBuilderFinish", 2, ".s|i");
+
         //Text
         AV::ScriptUtils::addFunction(vm, text, "text", 2, ".s");
         AV::ScriptUtils::addFunction(vm, textColored, "textColored", 6, ".nnnns");
@@ -1568,6 +1698,9 @@ namespace AVImgui{
         AV::ScriptUtils::addFunction(vm, selectable, "selectable", -2, ".sbinn");
         AV::ScriptUtils::addFunction(vm, progressBar, "progressBar", -2, ".nnns|o");
         AV::ScriptUtils::addFunction(vm, bullet, "bullet", 1, ".");
+
+        //Images
+        AV::ScriptUtils::addFunction(vm, image, "image", -4, ".unnnnnn");
 
         //Value widgets
         AV::ScriptUtils::addFunction(vm, sliderFloat, "sliderFloat", -5, ".snnns|oi");

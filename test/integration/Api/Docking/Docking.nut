@@ -248,6 +248,103 @@ _t("dockingErrors", "Bad docking calls raise an error rather than an imgui asser
     _test.assertNotEqual(0, ::dockHost());
 });
 
+//The dock builder describes a layout up front instead of letting windows land
+//wherever they are first submitted. It works on nodes rather than windows, and
+//docks windows by name whether or not they have ever been submitted.
+::builderRoot <- 0;
+::builderLeft <- 0;
+::builderRight <- 0;
+
+_t("dockBuilderSplit", "A layout can be built out of nodes before any window is submitted", function(){
+    //A node built with the DockSpace flag is a dockspace, and a dockspace has
+    //to be named, so an id is hashed for it rather than letting imgui pick one.
+    _imgui.begin("docking/builderIds");
+    local rootId = _imgui.getId("builderRoot");
+    _imgui.end();
+
+    ::builderRoot = _imgui.dockBuilderAddNode(rootId, _imgui.DockNodeFlags_DockSpace);
+    _test.assertEqual("integer", typeof ::builderRoot);
+    _test.assertEqual(rootId, ::builderRoot);
+
+    //Splits are proportional, so the node needs a size before it is split.
+    _imgui.dockBuilderSetNodeSize(::builderRoot, 400, 300);
+
+    local halves = _imgui.dockBuilderSplitNode(::builderRoot, _imgui.Dir_Left, 0.25);
+    _test.assertEqual("array", typeof halves);
+    _test.assertEqual(2, halves.len());
+
+    ::builderLeft = halves[0];
+    ::builderRight = halves[1];
+    _test.assertNotEqual(0, ::builderLeft);
+    _test.assertNotEqual(0, ::builderRight);
+    //Splitting makes the original a parent of two new nodes, so neither half is
+    //the node which was split.
+    _test.assertNotEqual(::builderLeft, ::builderRight);
+    _test.assertNotEqual(::builderRoot, ::builderLeft);
+    _test.assertNotEqual(::builderRoot, ::builderRight);
+
+    //Neither window has been submitted at any point, which is the whole point:
+    //a layout is described in one place rather than at each window.
+    _imgui.dockBuilderDockWindow("docking/builderLeft", ::builderLeft);
+    _imgui.dockBuilderDockWindow("docking/builderRight", ::builderRight);
+
+    _imgui.dockBuilderFinish(::builderRoot);
+});
+
+_t("dockBuilderResult", "Windows named by the builder come up in the nodes it put them in", function(){
+    //The built node is kept alive the same way any other dockspace is, by being
+    //submitted every frame it is in use.
+    _imgui.setNextWindowPos(0, 0, _imgui.Cond_Always);
+    _imgui.setNextWindowSize(400, 300, _imgui.Cond_Always);
+    _imgui.begin("docking/builderHost", _imgui.WindowFlags_NoDocking);
+    _imgui.dockSpace(::builderRoot);
+    _imgui.end();
+
+    //After the host, per the rule at the top of this file.
+    _imgui.begin("docking/builderLeft");
+    local leftDocked = _imgui.isWindowDocked();
+    local leftId = _imgui.getWindowDockId();
+    _imgui.end();
+
+    _imgui.begin("docking/builderRight");
+    local rightDocked = _imgui.isWindowDocked();
+    local rightId = _imgui.getWindowDockId();
+    _imgui.end();
+
+    _test.assertTrue(leftDocked);
+    _test.assertTrue(rightDocked);
+    _test.assertEqual(::builderLeft, leftId);
+    _test.assertEqual(::builderRight, rightId);
+});
+
+_t("dockBuilderRemove", "Removing the node takes the layout with it", function(){
+    _imgui.dockBuilderRemoveNode(::builderRoot);
+
+    //The windows are undocked rather than left pointing at a node which is gone.
+    _imgui.begin("docking/builderLeft");
+    local docked = _imgui.isWindowDocked();
+    _imgui.end();
+
+    _test.assertFalse(docked);
+});
+
+_t("dockBuilderErrors", "Bad arguments are errors rather than crashes", function(){
+    //A dockspace node with no id is an imgui assertion, so the binding has to
+    //catch it before imgui does.
+    ::_tThrows("a dockspace node with no id", function(){
+        _imgui.dockBuilderAddNode(0, _imgui.DockNodeFlags_DockSpace);
+    });
+    ::_tThrows("splitNode with no direction", function(){
+        _imgui.dockBuilderSplitNode(1);
+    });
+    ::_tThrows("dockWindow with no node", function(){
+        _imgui.dockBuilderDockWindow("docking/builderLeft");
+    });
+    ::_tThrows("dockWindow with a number where the name goes", function(){
+        _imgui.dockBuilderDockWindow(5, 1);
+    });
+});
+
 _t("dockingDisabled", "With docking off the dockspace calls are refused, not silently wrong", function(){
     //Left until last: turning docking off undocks everything.
     _imgui.setDockingEnabled(false);
