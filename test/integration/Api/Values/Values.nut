@@ -146,7 +146,7 @@ _t("inputInt", "Input int round-trips", function(){
     _imgui.end();
 });
 
-_t("dragFloatN", "The two and three component drag floats leave the array alone when untouched", function(){
+_t("dragFloatN", "The two, three and four component drag floats leave the array alone when untouched", function(){
     _imgui.begin("values/dragFloatN");
 
     local two = [1.5, 2.5];
@@ -162,8 +162,14 @@ _t("dragFloatN", "The two and three component drag floats leave the array alone 
     _test.assertEqual(3, three.len());
     _test.assertEqual(3.5, three[2]);
 
+    local four = [1.5, 2.5, 3.5, 4.5];
+    _test.assertFalse(_imgui.dragFloat4("dragFloat4", four));
+    _test.assertEqual(4, four.len());
+    _test.assertEqual(4.5, four[3]);
+
     //Every optional argument in turn.
     _test.assertFalse(_imgui.dragFloat2("dragFloat2Speed", two, 0.1));
+    _test.assertFalse(_imgui.dragFloat4("dragFloat4Flags", four, 0.1, 0.0, 10.0, "%.2f", _imgui.SliderFlags_Logarithmic));
     _test.assertFalse(_imgui.dragFloat3("dragFloat3Range", three, 0.1, 0.0, 10.0));
     _test.assertFalse(_imgui.dragFloat3("dragFloat3Fmt", three, 0.1, 0.0, 10.0, "%.2f"));
     _test.assertFalse(_imgui.dragFloat3("dragFloat3Flags", three, 0.1, 0.0, 10.0, "%.2f", _imgui.SliderFlags_Logarithmic));
@@ -172,7 +178,7 @@ _t("dragFloatN", "The two and three component drag floats leave the array alone 
     _imgui.end();
 });
 
-_t("dragIntN", "The two and three component drag ints leave the array alone when untouched", function(){
+_t("dragIntN", "The two, three and four component drag ints leave the array alone when untouched", function(){
     _imgui.begin("values/dragIntN");
 
     local two = [4, 5];
@@ -186,7 +192,13 @@ _t("dragIntN", "The two and three component drag ints leave the array alone when
     _test.assertFalse(_imgui.dragInt3("dragInt3", three));
     _test.assertEqual(6, three[2]);
 
+    local four = [4, 5, 6, 7];
+    _test.assertFalse(_imgui.dragInt4("dragInt4", four));
+    _test.assertEqual(4, four.len());
+    _test.assertEqual(7, four[3]);
+
     _test.assertFalse(_imgui.dragInt2("dragInt2Speed", two, 0.5));
+    _test.assertFalse(_imgui.dragInt4("dragInt4Flags", four, 0.5, 0, 100, "%d", _imgui.SliderFlags_NoInput));
     _test.assertFalse(_imgui.dragInt3("dragInt3Range", three, 0.5, 0, 100));
     _test.assertFalse(_imgui.dragInt3("dragInt3Fmt", three, 0.5, 0, 100, "%d%%"));
     _test.assertFalse(_imgui.dragInt3("dragInt3Flags", three, 0.5, 0, 100, "%d", _imgui.SliderFlags_NoInput));
@@ -195,7 +207,7 @@ _t("dragIntN", "The two and three component drag ints leave the array alone when
     _imgui.end();
 });
 
-_t("inputFloatN", "The two and three component input floats leave the array alone when untouched", function(){
+_t("inputFloatN", "The two, three and four component input floats leave the array alone when untouched", function(){
     _imgui.begin("values/inputFloatN");
 
     local two = [1.5, 2.5];
@@ -210,14 +222,20 @@ _t("inputFloatN", "The two and three component input floats leave the array alon
     _test.assertFalse(_imgui.inputFloat3("inputFloat3", three));
     _test.assertEqual(3.5, three[2]);
 
+    local four = [1.5, 2.5, 3.5, 4.5];
+    _test.assertFalse(_imgui.inputFloat4("inputFloat4", four));
+    _test.assertEqual(4, four.len());
+    _test.assertEqual(4.5, four[3]);
+
     _test.assertFalse(_imgui.inputFloat2("inputFloat2Fmt", two, "%.1f"));
+    _test.assertFalse(_imgui.inputFloat4("inputFloat4Flags", four, "%.3f", _imgui.InputTextFlags_ReadOnly));
     _test.assertFalse(_imgui.inputFloat3("inputFloat3Flags", three, "%.3f", _imgui.InputTextFlags_ReadOnly));
     _test.assertFalse(_imgui.inputFloat3("inputFloat3NullFmt", three, null));
 
     _imgui.end();
 });
 
-_t("inputIntN", "The two and three component input ints leave the array alone when untouched", function(){
+_t("inputIntN", "The two, three and four component input ints leave the array alone when untouched", function(){
     _imgui.begin("values/inputIntN");
 
     local two = [4, 5];
@@ -230,7 +248,13 @@ _t("inputIntN", "The two and three component input ints leave the array alone wh
     _test.assertFalse(_imgui.inputInt3("inputInt3", three));
     _test.assertEqual(6, three[2]);
 
+    local four = [4, 5, 6, 7];
+    _test.assertFalse(_imgui.inputInt4("inputInt4", four));
+    _test.assertEqual(4, four.len());
+    _test.assertEqual(7, four[3]);
+
     _test.assertFalse(_imgui.inputInt2("inputInt2Flags", two, _imgui.InputTextFlags_ReadOnly));
+    _test.assertFalse(_imgui.inputInt4("inputInt4Flags", four, _imgui.InputTextFlags_ReadOnly));
     _test.assertFalse(_imgui.inputInt3("inputInt3Flags", three, _imgui.InputTextFlags_ReadOnly));
 
     _imgui.end();
@@ -264,6 +288,19 @@ _t("componentArraySizesAreValidated", "The fixed component widgets reject arrays
     });
     ::_tThrows("inputInt3 short", function(){
         _imgui.inputInt3("inputInt3Short", [1]);
+    });
+    //Four is imgui's largest component form, so five has nowhere to go.
+    ::_tThrows("dragFloat4 long", function(){
+        _imgui.dragFloat4("dragFloat4Long", [1.0, 2.0, 3.0, 4.0, 5.0]);
+    });
+    ::_tThrows("dragInt4 short", function(){
+        _imgui.dragInt4("dragInt4Short", [1, 2, 3]);
+    });
+    ::_tThrows("inputFloat4 long", function(){
+        _imgui.inputFloat4("inputFloat4Long", [1.0, 2.0, 3.0, 4.0, 5.0]);
+    });
+    ::_tThrows("inputInt4 short", function(){
+        _imgui.inputInt4("inputInt4Short", [1, 2, 3]);
     });
 
     _imgui.end();

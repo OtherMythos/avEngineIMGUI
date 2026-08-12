@@ -287,12 +287,16 @@ Because the plugin disables settings persistence there is no `imgui.ini`, so **d
 | `inputInt(label, v, step = 1, stepFast = 100, flags = 0)` → int | |
 | `dragFloat2(label, array, speed = 1, min = 0, max = 0, format = "%.3f", flags = 0)` → bool | 2 element array, mutated in place. |
 | `dragFloat3(label, array, speed = 1, min = 0, max = 0, format = "%.3f", flags = 0)` → bool | 3 element array, mutated in place. |
+| `dragFloat4(label, array, speed = 1, min = 0, max = 0, format = "%.3f", flags = 0)` → bool | 4 element array, mutated in place. |
 | `dragInt2(label, array, speed = 1, min = 0, max = 0, format = "%d", flags = 0)` → bool | |
 | `dragInt3(label, array, speed = 1, min = 0, max = 0, format = "%d", flags = 0)` → bool | |
+| `dragInt4(label, array, speed = 1, min = 0, max = 0, format = "%d", flags = 0)` → bool | |
 | `inputFloat2(label, array, format = "%.3f", flags = 0)` → bool | |
 | `inputFloat3(label, array, format = "%.3f", flags = 0)` → bool | |
+| `inputFloat4(label, array, format = "%.3f", flags = 0)` → bool | |
 | `inputInt2(label, array, flags = 0)` → bool | |
 | `inputInt3(label, array, flags = 0)` → bool | |
+| `inputInt4(label, array, flags = 0)` → bool | |
 | `inputText(label, str, flags = 0)` → string | |
 | `inputTextMultiline(label, str, w = 0, h = 0, flags = 0)` → string | |
 | `colorEdit3(label, [r, g, b], flags = 0)` → bool | Array mutated in place. |

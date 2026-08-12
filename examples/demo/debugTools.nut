@@ -17,6 +17,8 @@ local state = {
     tileCoord = [3, 7],
     spawnCount = [1, 1],
     fogRange = [10.0, 200.0],
+    rotation = [0.0, 0.0, 0.0, 1.0],
+    viewport = [0, 0, 1280, 720],
     frameTimes = array(60, 0.0),
     frameIdx = 0,
     lastTime = 0.0
@@ -38,7 +40,7 @@ function update(){
     state.frameIdx = (state.frameIdx + 1) % state.frameTimes.len();
 
     _imgui.setNextWindowPos(20, 20, _imgui.Cond_FirstUseEver);
-    _imgui.setNextWindowSize(360, 620, _imgui.Cond_FirstUseEver);
+    _imgui.setNextWindowSize(400, 720, _imgui.Cond_FirstUseEver);
 
     if(_imgui.begin("Debug tools", _imgui.WindowFlags_MenuBar)){
 
@@ -68,11 +70,16 @@ function update(){
         _imgui.dragFloat2("Scroll", state.scroll, 0.5, -100.0, 100.0);
         _imgui.dragInt3("Grid size", state.gridSize, 1.0, 1, 64);
         _imgui.dragInt2("Tile", state.tileCoord, 0.2, 0, 31);
+        //Four components is imgui's largest form, handy for a quaternion or a rect.
+        _imgui.dragFloat4("Rotation", state.rotation, 0.01, -1.0, 1.0);
+        _imgui.dragInt4("Viewport", state.viewport, 1.0, 0, 4096);
         //The input variants type the value rather than dragging it.
         _imgui.inputFloat3("Position (typed)", state.position, "%.2f");
         _imgui.inputFloat2("Fog near/far", state.fogRange, "%.1f");
         _imgui.inputInt3("Grid size (typed)", state.gridSize);
         _imgui.inputInt2("Spawn count", state.spawnCount);
+        _imgui.inputFloat4("Rotation (typed)", state.rotation, "%.2f");
+        _imgui.inputInt4("Viewport (typed)", state.viewport);
         _imgui.textDisabled("pos " + state.position[0] + ", " + state.position[1] + ", " + state.position[2]);
 
         _imgui.separatorText("Gameplay");

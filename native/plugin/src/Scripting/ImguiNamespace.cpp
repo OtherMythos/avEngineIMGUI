@@ -760,6 +760,7 @@ namespace AVImgui{
             switch(count){
                 case 2: changed = ImGui::DragFloat2(label, values, speed, minVal, maxVal, format, flags); break;
                 case 3: changed = ImGui::DragFloat3(label, values, speed, minVal, maxVal, format, flags); break;
+                case 4: changed = ImGui::DragFloat4(label, values, speed, minVal, maxVal, format, flags); break;
                 default: return sq_throwerror(vm, sizeError);
             }
             if(changed) writeFloatArray(vm, 3, values, count);
@@ -785,6 +786,7 @@ namespace AVImgui{
             switch(count){
                 case 2: changed = ImGui::DragInt2(label, values, speed, minVal, maxVal, format, flags); break;
                 case 3: changed = ImGui::DragInt3(label, values, speed, minVal, maxVal, format, flags); break;
+                case 4: changed = ImGui::DragInt4(label, values, speed, minVal, maxVal, format, flags); break;
                 default: return sq_throwerror(vm, sizeError);
             }
             if(changed) writeIntArray(vm, 3, values, count);
@@ -807,6 +809,7 @@ namespace AVImgui{
             switch(count){
                 case 2: changed = ImGui::InputFloat2(label, values, format, flags); break;
                 case 3: changed = ImGui::InputFloat3(label, values, format, flags); break;
+                case 4: changed = ImGui::InputFloat4(label, values, format, flags); break;
                 default: return sq_throwerror(vm, sizeError);
             }
             if(changed) writeFloatArray(vm, 3, values, count);
@@ -828,6 +831,7 @@ namespace AVImgui{
             switch(count){
                 case 2: changed = ImGui::InputInt2(label, values, flags); break;
                 case 3: changed = ImGui::InputInt3(label, values, flags); break;
+                case 4: changed = ImGui::InputInt4(label, values, flags); break;
                 default: return sq_throwerror(vm, sizeError);
             }
             if(changed) writeIntArray(vm, 3, values, count);
@@ -841,11 +845,17 @@ namespace AVImgui{
         SQInteger dragFloat3(HSQUIRRELVM vm){
             return dragFloatArray(vm, 3, "dragFloat3 expects an array of 3 numbers.");
         }
+        SQInteger dragFloat4(HSQUIRRELVM vm){
+            return dragFloatArray(vm, 4, "dragFloat4 expects an array of 4 numbers.");
+        }
         SQInteger dragInt2(HSQUIRRELVM vm){
             return dragIntArray(vm, 2, "dragInt2 expects an array of 2 numbers.");
         }
         SQInteger dragInt3(HSQUIRRELVM vm){
             return dragIntArray(vm, 3, "dragInt3 expects an array of 3 numbers.");
+        }
+        SQInteger dragInt4(HSQUIRRELVM vm){
+            return dragIntArray(vm, 4, "dragInt4 expects an array of 4 numbers.");
         }
         SQInteger inputFloat2(HSQUIRRELVM vm){
             return inputFloatArray(vm, 2, "inputFloat2 expects an array of 2 numbers.");
@@ -853,11 +863,17 @@ namespace AVImgui{
         SQInteger inputFloat3(HSQUIRRELVM vm){
             return inputFloatArray(vm, 3, "inputFloat3 expects an array of 3 numbers.");
         }
+        SQInteger inputFloat4(HSQUIRRELVM vm){
+            return inputFloatArray(vm, 4, "inputFloat4 expects an array of 4 numbers.");
+        }
         SQInteger inputInt2(HSQUIRRELVM vm){
             return inputIntArray(vm, 2, "inputInt2 expects an array of 2 numbers.");
         }
         SQInteger inputInt3(HSQUIRRELVM vm){
             return inputIntArray(vm, 3, "inputInt3 expects an array of 3 numbers.");
+        }
+        SQInteger inputInt4(HSQUIRRELVM vm){
+            return inputIntArray(vm, 4, "inputInt4 expects an array of 4 numbers.");
         }
 
         static const size_t INPUT_TEXT_BUFFER_SIZE = 8192;
@@ -1563,12 +1579,16 @@ namespace AVImgui{
         AV::ScriptUtils::addFunction(vm, inputInt, "inputInt", -3, ".siiii");
         AV::ScriptUtils::addFunction(vm, dragFloat2, "dragFloat2", -3, ".sannns|oi");
         AV::ScriptUtils::addFunction(vm, dragFloat3, "dragFloat3", -3, ".sannns|oi");
+        AV::ScriptUtils::addFunction(vm, dragFloat4, "dragFloat4", -3, ".sannns|oi");
         AV::ScriptUtils::addFunction(vm, dragInt2, "dragInt2", -3, ".sannns|oi");
         AV::ScriptUtils::addFunction(vm, dragInt3, "dragInt3", -3, ".sannns|oi");
+        AV::ScriptUtils::addFunction(vm, dragInt4, "dragInt4", -3, ".sannns|oi");
         AV::ScriptUtils::addFunction(vm, inputFloat2, "inputFloat2", -3, ".sas|oi");
         AV::ScriptUtils::addFunction(vm, inputFloat3, "inputFloat3", -3, ".sas|oi");
+        AV::ScriptUtils::addFunction(vm, inputFloat4, "inputFloat4", -3, ".sas|oi");
         AV::ScriptUtils::addFunction(vm, inputInt2, "inputInt2", -3, ".sai");
         AV::ScriptUtils::addFunction(vm, inputInt3, "inputInt3", -3, ".sai");
+        AV::ScriptUtils::addFunction(vm, inputInt4, "inputInt4", -3, ".sai");
         AV::ScriptUtils::addFunction(vm, inputText, "inputText", -3, ".ssi");
         AV::ScriptUtils::addFunction(vm, inputTextMultiline, "inputTextMultiline", -3, ".ssnni");
         AV::ScriptUtils::addFunction(vm, colorEdit3, "colorEdit3", -3, ".sai");
