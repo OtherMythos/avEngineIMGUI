@@ -146,6 +146,129 @@ _t("inputInt", "Input int round-trips", function(){
     _imgui.end();
 });
 
+_t("dragFloatN", "The two and three component drag floats leave the array alone when untouched", function(){
+    _imgui.begin("values/dragFloatN");
+
+    local two = [1.5, 2.5];
+    local changed = _imgui.dragFloat2("dragFloat2", two);
+    _test.assertEqual("bool", typeof changed);
+    _test.assertFalse(changed);
+    _test.assertEqual(2, two.len());
+    _test.assertEqual(1.5, two[0]);
+    _test.assertEqual(2.5, two[1]);
+
+    local three = [1.5, 2.5, 3.5];
+    _test.assertFalse(_imgui.dragFloat3("dragFloat3", three));
+    _test.assertEqual(3, three.len());
+    _test.assertEqual(3.5, three[2]);
+
+    //Every optional argument in turn.
+    _test.assertFalse(_imgui.dragFloat2("dragFloat2Speed", two, 0.1));
+    _test.assertFalse(_imgui.dragFloat3("dragFloat3Range", three, 0.1, 0.0, 10.0));
+    _test.assertFalse(_imgui.dragFloat3("dragFloat3Fmt", three, 0.1, 0.0, 10.0, "%.2f"));
+    _test.assertFalse(_imgui.dragFloat3("dragFloat3Flags", three, 0.1, 0.0, 10.0, "%.2f", _imgui.SliderFlags_Logarithmic));
+    _test.assertFalse(_imgui.dragFloat3("dragFloat3NullFmt", three, 0.1, 0.0, 10.0, null));
+
+    _imgui.end();
+});
+
+_t("dragIntN", "The two and three component drag ints leave the array alone when untouched", function(){
+    _imgui.begin("values/dragIntN");
+
+    local two = [4, 5];
+    _test.assertFalse(_imgui.dragInt2("dragInt2", two));
+    _test.assertEqual(2, two.len());
+    _test.assertEqual(4, two[0]);
+    _test.assertEqual("integer", typeof two[0]);
+    _test.assertEqual(5, two[1]);
+
+    local three = [4, 5, 6];
+    _test.assertFalse(_imgui.dragInt3("dragInt3", three));
+    _test.assertEqual(6, three[2]);
+
+    _test.assertFalse(_imgui.dragInt2("dragInt2Speed", two, 0.5));
+    _test.assertFalse(_imgui.dragInt3("dragInt3Range", three, 0.5, 0, 100));
+    _test.assertFalse(_imgui.dragInt3("dragInt3Fmt", three, 0.5, 0, 100, "%d%%"));
+    _test.assertFalse(_imgui.dragInt3("dragInt3Flags", three, 0.5, 0, 100, "%d", _imgui.SliderFlags_NoInput));
+    _test.assertFalse(_imgui.dragInt3("dragInt3NullFmt", three, 0.5, 0, 100, null));
+
+    _imgui.end();
+});
+
+_t("inputFloatN", "The two and three component input floats leave the array alone when untouched", function(){
+    _imgui.begin("values/inputFloatN");
+
+    local two = [1.5, 2.5];
+    local changed = _imgui.inputFloat2("inputFloat2", two);
+    _test.assertEqual("bool", typeof changed);
+    _test.assertFalse(changed);
+    _test.assertEqual(2, two.len());
+    _test.assertEqual(1.5, two[0]);
+    _test.assertEqual(2.5, two[1]);
+
+    local three = [1.5, 2.5, 3.5];
+    _test.assertFalse(_imgui.inputFloat3("inputFloat3", three));
+    _test.assertEqual(3.5, three[2]);
+
+    _test.assertFalse(_imgui.inputFloat2("inputFloat2Fmt", two, "%.1f"));
+    _test.assertFalse(_imgui.inputFloat3("inputFloat3Flags", three, "%.3f", _imgui.InputTextFlags_ReadOnly));
+    _test.assertFalse(_imgui.inputFloat3("inputFloat3NullFmt", three, null));
+
+    _imgui.end();
+});
+
+_t("inputIntN", "The two and three component input ints leave the array alone when untouched", function(){
+    _imgui.begin("values/inputIntN");
+
+    local two = [4, 5];
+    _test.assertFalse(_imgui.inputInt2("inputInt2", two));
+    _test.assertEqual(2, two.len());
+    _test.assertEqual(4, two[0]);
+    _test.assertEqual("integer", typeof two[0]);
+
+    local three = [4, 5, 6];
+    _test.assertFalse(_imgui.inputInt3("inputInt3", three));
+    _test.assertEqual(6, three[2]);
+
+    _test.assertFalse(_imgui.inputInt2("inputInt2Flags", two, _imgui.InputTextFlags_ReadOnly));
+    _test.assertFalse(_imgui.inputInt3("inputInt3Flags", three, _imgui.InputTextFlags_ReadOnly));
+
+    _imgui.end();
+});
+
+_t("componentArraySizesAreValidated", "The fixed component widgets reject arrays of the wrong length", function(){
+    _imgui.begin("values/badComponentArrays");
+
+    //Too short would read components that were never supplied, too long would
+    //silently ignore the extras.
+    ::_tThrows("dragFloat2 short", function(){
+        _imgui.dragFloat2("dragFloat2Short", [1.0]);
+    });
+    ::_tThrows("dragFloat3 long", function(){
+        _imgui.dragFloat3("dragFloat3Long", [1.0, 2.0, 3.0, 4.0]);
+    });
+    ::_tThrows("dragInt2 short", function(){
+        _imgui.dragInt2("dragInt2Short", []);
+    });
+    ::_tThrows("dragInt3 short", function(){
+        _imgui.dragInt3("dragInt3Short", [1, 2]);
+    });
+    ::_tThrows("inputFloat2 long", function(){
+        _imgui.inputFloat2("inputFloat2Long", [1.0, 2.0, 3.0]);
+    });
+    ::_tThrows("inputFloat3 short", function(){
+        _imgui.inputFloat3("inputFloat3Short", [1.0, 2.0]);
+    });
+    ::_tThrows("inputInt2 long", function(){
+        _imgui.inputInt2("inputInt2Long", [1, 2, 3]);
+    });
+    ::_tThrows("inputInt3 short", function(){
+        _imgui.inputInt3("inputInt3Short", [1]);
+    });
+
+    _imgui.end();
+});
+
 _t("inputText", "Text round-trips, including empty and long values", function(){
     _imgui.begin("values/inputText");
 

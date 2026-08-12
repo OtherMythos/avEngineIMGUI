@@ -90,6 +90,30 @@ namespace AVImgui{
             }
         }
 
+        //Read up to maxCount integers from the array at idx. Returns the count read.
+        inline int readIntArray(HSQUIRRELVM vm, SQInteger idx, int* out, int maxCount){
+            SQInteger size = sq_getsize(vm, idx);
+            int count = (int)(size < maxCount ? size : maxCount);
+            for(int i = 0; i < count; i++){
+                sq_pushinteger(vm, i);
+                if(SQ_FAILED(sq_get(vm, idx))) return i;
+                SQInteger v = 0;
+                sq_getinteger(vm, -1, &v);
+                sq_pop(vm, 1);
+                out[i] = (int)v;
+            }
+            return count;
+        }
+
+        //Write integers back into the array at idx.
+        inline void writeIntArray(HSQUIRRELVM vm, SQInteger idx, const int* vals, int count){
+            for(int i = 0; i < count; i++){
+                sq_pushinteger(vm, i);
+                sq_pushinteger(vm, vals[i]);
+                sq_set(vm, idx);
+            }
+        }
+
         //Read an array of strings. Storage keeps the std::strings alive while
         //the const char* pointers are in use during the imgui call.
         inline void readStringArray(HSQUIRRELVM vm, SQInteger idx, std::vector<std::string>& storage, std::vector<const char*>& pointers){
@@ -708,6 +732,132 @@ namespace AVImgui{
             ImGui::InputInt(label, &v, step, stepFast, flags);
             sq_pushinteger(vm, v);
             return 1;
+        }
+
+        //The multi component drag and input widgets. Squirrel has no reference
+        //primitives, so unlike their single value counterparts these take an
+        //array which is mutated in place, and return whether it changed. Each
+        //family differs only in the imgui call, so the argument handling lives
+        //in one place and the bindings are thin wrappers over it.
+        //The size is checked before reading, so an array of the wrong length is
+        //an error rather than being silently truncated or partially read.
+        SQInteger dragFloatArray(HSQUIRRELVM vm, int count, const SQChar* sizeError){
+            IMGUI_FRAME_GUARD
+            const SQChar* label;
+            sq_getstring(vm, 2, &label);
+            if(sq_getsize(vm, 3) != count){
+                return sq_throwerror(vm, sizeError);
+            }
+            float values[4];
+            readFloatArray(vm, 3, values, count);
+            float speed = (float)getFloatOr(vm, 4, 1.0f);
+            float minVal = (float)getFloatOr(vm, 5, 0.0f);
+            float maxVal = (float)getFloatOr(vm, 6, 0.0f);
+            const SQChar* format = getStringOr(vm, 7, "%.3f");
+            ImGuiSliderFlags flags = (ImGuiSliderFlags)getIntOr(vm, 8, 0);
+
+            bool changed = false;
+            switch(count){
+                case 2: changed = ImGui::DragFloat2(label, values, speed, minVal, maxVal, format, flags); break;
+                case 3: changed = ImGui::DragFloat3(label, values, speed, minVal, maxVal, format, flags); break;
+                default: return sq_throwerror(vm, sizeError);
+            }
+            if(changed) writeFloatArray(vm, 3, values, count);
+            sq_pushbool(vm, changed);
+            return 1;
+        }
+        SQInteger dragIntArray(HSQUIRRELVM vm, int count, const SQChar* sizeError){
+            IMGUI_FRAME_GUARD
+            const SQChar* label;
+            sq_getstring(vm, 2, &label);
+            if(sq_getsize(vm, 3) != count){
+                return sq_throwerror(vm, sizeError);
+            }
+            int values[4];
+            readIntArray(vm, 3, values, count);
+            float speed = (float)getFloatOr(vm, 4, 1.0f);
+            int minVal = (int)getIntOr(vm, 5, 0);
+            int maxVal = (int)getIntOr(vm, 6, 0);
+            const SQChar* format = getStringOr(vm, 7, "%d");
+            ImGuiSliderFlags flags = (ImGuiSliderFlags)getIntOr(vm, 8, 0);
+
+            bool changed = false;
+            switch(count){
+                case 2: changed = ImGui::DragInt2(label, values, speed, minVal, maxVal, format, flags); break;
+                case 3: changed = ImGui::DragInt3(label, values, speed, minVal, maxVal, format, flags); break;
+                default: return sq_throwerror(vm, sizeError);
+            }
+            if(changed) writeIntArray(vm, 3, values, count);
+            sq_pushbool(vm, changed);
+            return 1;
+        }
+        SQInteger inputFloatArray(HSQUIRRELVM vm, int count, const SQChar* sizeError){
+            IMGUI_FRAME_GUARD
+            const SQChar* label;
+            sq_getstring(vm, 2, &label);
+            if(sq_getsize(vm, 3) != count){
+                return sq_throwerror(vm, sizeError);
+            }
+            float values[4];
+            readFloatArray(vm, 3, values, count);
+            const SQChar* format = getStringOr(vm, 4, "%.3f");
+            ImGuiInputTextFlags flags = (ImGuiInputTextFlags)getIntOr(vm, 5, 0);
+
+            bool changed = false;
+            switch(count){
+                case 2: changed = ImGui::InputFloat2(label, values, format, flags); break;
+                case 3: changed = ImGui::InputFloat3(label, values, format, flags); break;
+                default: return sq_throwerror(vm, sizeError);
+            }
+            if(changed) writeFloatArray(vm, 3, values, count);
+            sq_pushbool(vm, changed);
+            return 1;
+        }
+        SQInteger inputIntArray(HSQUIRRELVM vm, int count, const SQChar* sizeError){
+            IMGUI_FRAME_GUARD
+            const SQChar* label;
+            sq_getstring(vm, 2, &label);
+            if(sq_getsize(vm, 3) != count){
+                return sq_throwerror(vm, sizeError);
+            }
+            int values[4];
+            readIntArray(vm, 3, values, count);
+            ImGuiInputTextFlags flags = (ImGuiInputTextFlags)getIntOr(vm, 4, 0);
+
+            bool changed = false;
+            switch(count){
+                case 2: changed = ImGui::InputInt2(label, values, flags); break;
+                case 3: changed = ImGui::InputInt3(label, values, flags); break;
+                default: return sq_throwerror(vm, sizeError);
+            }
+            if(changed) writeIntArray(vm, 3, values, count);
+            sq_pushbool(vm, changed);
+            return 1;
+        }
+
+        SQInteger dragFloat2(HSQUIRRELVM vm){
+            return dragFloatArray(vm, 2, "dragFloat2 expects an array of 2 numbers.");
+        }
+        SQInteger dragFloat3(HSQUIRRELVM vm){
+            return dragFloatArray(vm, 3, "dragFloat3 expects an array of 3 numbers.");
+        }
+        SQInteger dragInt2(HSQUIRRELVM vm){
+            return dragIntArray(vm, 2, "dragInt2 expects an array of 2 numbers.");
+        }
+        SQInteger dragInt3(HSQUIRRELVM vm){
+            return dragIntArray(vm, 3, "dragInt3 expects an array of 3 numbers.");
+        }
+        SQInteger inputFloat2(HSQUIRRELVM vm){
+            return inputFloatArray(vm, 2, "inputFloat2 expects an array of 2 numbers.");
+        }
+        SQInteger inputFloat3(HSQUIRRELVM vm){
+            return inputFloatArray(vm, 3, "inputFloat3 expects an array of 3 numbers.");
+        }
+        SQInteger inputInt2(HSQUIRRELVM vm){
+            return inputIntArray(vm, 2, "inputInt2 expects an array of 2 numbers.");
+        }
+        SQInteger inputInt3(HSQUIRRELVM vm){
+            return inputIntArray(vm, 3, "inputInt3 expects an array of 3 numbers.");
         }
 
         static const size_t INPUT_TEXT_BUFFER_SIZE = 8192;
@@ -1411,6 +1561,14 @@ namespace AVImgui{
         AV::ScriptUtils::addFunction(vm, dragInt, "dragInt", -3, ".sinnns|oi");
         AV::ScriptUtils::addFunction(vm, inputFloat, "inputFloat", -3, ".snnns|oi");
         AV::ScriptUtils::addFunction(vm, inputInt, "inputInt", -3, ".siiii");
+        AV::ScriptUtils::addFunction(vm, dragFloat2, "dragFloat2", -3, ".sannns|oi");
+        AV::ScriptUtils::addFunction(vm, dragFloat3, "dragFloat3", -3, ".sannns|oi");
+        AV::ScriptUtils::addFunction(vm, dragInt2, "dragInt2", -3, ".sannns|oi");
+        AV::ScriptUtils::addFunction(vm, dragInt3, "dragInt3", -3, ".sannns|oi");
+        AV::ScriptUtils::addFunction(vm, inputFloat2, "inputFloat2", -3, ".sas|oi");
+        AV::ScriptUtils::addFunction(vm, inputFloat3, "inputFloat3", -3, ".sas|oi");
+        AV::ScriptUtils::addFunction(vm, inputInt2, "inputInt2", -3, ".sai");
+        AV::ScriptUtils::addFunction(vm, inputInt3, "inputInt3", -3, ".sai");
         AV::ScriptUtils::addFunction(vm, inputText, "inputText", -3, ".ssi");
         AV::ScriptUtils::addFunction(vm, inputTextMultiline, "inputTextMultiline", -3, ".ssnni");
         AV::ScriptUtils::addFunction(vm, colorEdit3, "colorEdit3", -3, ".sai");

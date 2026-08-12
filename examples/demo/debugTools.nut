@@ -11,6 +11,12 @@ local state = {
     playerName = "player",
     tint = [1.0, 0.5, 0.2],
     mode = 0,
+    position = [0.0, 1.0, 0.0],
+    scroll = [0.0, 0.0],
+    gridSize = [16, 16, 4],
+    tileCoord = [3, 7],
+    spawnCount = [1, 1],
+    fogRange = [10.0, 200.0],
     frameTimes = array(60, 0.0),
     frameIdx = 0,
     lastTime = 0.0
@@ -32,7 +38,7 @@ function update(){
     state.frameIdx = (state.frameIdx + 1) % state.frameTimes.len();
 
     _imgui.setNextWindowPos(20, 20, _imgui.Cond_FirstUseEver);
-    _imgui.setNextWindowSize(320, 400, _imgui.Cond_FirstUseEver);
+    _imgui.setNextWindowSize(360, 620, _imgui.Cond_FirstUseEver);
 
     if(_imgui.begin("Debug tools", _imgui.WindowFlags_MenuBar)){
 
@@ -52,6 +58,22 @@ function update(){
             //Arrays are modified in place; react to the change here.
             //_myGame.setTint(state.tint[0], state.tint[1], state.tint[2]);
         }
+
+        _imgui.separatorText("Transform");
+        //The multi component widgets take an array and mutate it in place,
+        //returning true on the frames where imgui changed it.
+        if(_imgui.dragFloat3("Position", state.position, 0.05)){
+            //_myGame.setPlayerPosition(state.position[0], state.position[1], state.position[2]);
+        }
+        _imgui.dragFloat2("Scroll", state.scroll, 0.5, -100.0, 100.0);
+        _imgui.dragInt3("Grid size", state.gridSize, 1.0, 1, 64);
+        _imgui.dragInt2("Tile", state.tileCoord, 0.2, 0, 31);
+        //The input variants type the value rather than dragging it.
+        _imgui.inputFloat3("Position (typed)", state.position, "%.2f");
+        _imgui.inputFloat2("Fog near/far", state.fogRange, "%.1f");
+        _imgui.inputInt3("Grid size (typed)", state.gridSize);
+        _imgui.inputInt2("Spawn count", state.spawnCount);
+        _imgui.textDisabled("pos " + state.position[0] + ", " + state.position[1] + ", " + state.position[2]);
 
         _imgui.separatorText("Gameplay");
         state.speed = _imgui.sliderFloat("Speed", state.speed, 0.0, 10.0);
