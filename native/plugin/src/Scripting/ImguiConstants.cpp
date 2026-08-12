@@ -39,6 +39,17 @@ namespace AVImgui{
             {"WindowFlags_NoNav", ImGuiWindowFlags_NoNav},
             {"WindowFlags_NoDecoration", ImGuiWindowFlags_NoDecoration},
             {"WindowFlags_NoInputs", ImGuiWindowFlags_NoInputs},
+            {"WindowFlags_NoDocking", ImGuiWindowFlags_NoDocking},
+
+            //ImGuiDockNodeFlags, for dockSpace and dockSpaceOverViewport
+            {"DockNodeFlags_None", ImGuiDockNodeFlags_None},
+            {"DockNodeFlags_KeepAliveOnly", ImGuiDockNodeFlags_KeepAliveOnly},
+            {"DockNodeFlags_NoDockingOverCentralNode", ImGuiDockNodeFlags_NoDockingOverCentralNode},
+            {"DockNodeFlags_PassthruCentralNode", ImGuiDockNodeFlags_PassthruCentralNode},
+            {"DockNodeFlags_NoDockingSplit", ImGuiDockNodeFlags_NoDockingSplit},
+            {"DockNodeFlags_NoResize", ImGuiDockNodeFlags_NoResize},
+            {"DockNodeFlags_AutoHideTabBar", ImGuiDockNodeFlags_AutoHideTabBar},
+            {"DockNodeFlags_NoUndocking", ImGuiDockNodeFlags_NoUndocking},
 
             //ImGuiChildFlags
             {"ChildFlags_None", ImGuiChildFlags_None},
@@ -94,6 +105,8 @@ namespace AVImgui{
             {"Col_TableHeaderBg", ImGuiCol_TableHeaderBg},
             {"Col_TableRowBg", ImGuiCol_TableRowBg},
             {"Col_TableRowBgAlt", ImGuiCol_TableRowBgAlt},
+            {"Col_DockingPreview", ImGuiCol_DockingPreview},
+            {"Col_DockingEmptyBg", ImGuiCol_DockingEmptyBg},
 
             //ImGuiStyleVar
             {"StyleVar_Alpha", ImGuiStyleVar_Alpha},
@@ -124,6 +137,7 @@ namespace AVImgui{
             {"StyleVar_SeparatorTextBorderSize", ImGuiStyleVar_SeparatorTextBorderSize},
             {"StyleVar_SeparatorTextAlign", ImGuiStyleVar_SeparatorTextAlign},
             {"StyleVar_SeparatorTextPadding", ImGuiStyleVar_SeparatorTextPadding},
+            {"StyleVar_DockingSeparatorSize", ImGuiStyleVar_DockingSeparatorSize},
 
             //ImGuiTreeNodeFlags
             {"TreeNodeFlags_None", ImGuiTreeNodeFlags_None},

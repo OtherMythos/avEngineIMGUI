@@ -2,7 +2,9 @@
 
 An [avEngine](https://github.com/OtherMythos/avEngine) plugin which exposes [Dear ImGui](https://github.com/ocornut/imgui) to Squirrel scripts.
 
-Dear ImGui is an immediate mode gui, which makes it a great fit for debug tooling: scripts re-build the gui every frame with plain function calls, with no widget objects to create or destroy. This plugin bakes the imgui library (1.92.8) and an Ogre-next renderer into a single loadable plugin, keeping imgui an optional dependency of the engine. When the plugin loads it defines a namespace called `_imgui` containing the api.
+Dear ImGui is an immediate mode gui, which makes it a great fit for debug tooling: scripts re-build the gui every frame with plain function calls, with no widget objects to create or destroy. This plugin bakes the imgui library and an Ogre-next renderer into a single loadable plugin, keeping imgui an optional dependency of the engine. When the plugin loads it defines a namespace called `_imgui` containing the api.
+
+The vendored copy is the **docking branch** of imgui (1.92.8), so debug windows can be docked into each other and into dockspaces. See [Docking](#docking) for the api and for what the docking branch does and does not bring with it here.
 
 ```squirrel
 function update(){
@@ -41,29 +43,26 @@ The engine picks the correct binary out of `bin/` by platform, architecture and 
 
 The plugin disables imgui's settings persistence (`io.IniFilename`), so it never writes an `imgui.ini` into the working directory. Window positions therefore come from the script each run rather than being remembered — use `setNextWindowPos`/`setNextWindowSize` with `Cond_FirstUseEver` to place a window without pinning it every frame.
 
-2. Register the plugin in `avSetup.cfg`:
+2. Register the plugin in `avSetup.cfg`. Each entry is the path to the plugin's directory, which is the one holding `avPlugin.cfg`:
 
 ```json
 "Plugins": [
-    {
-        "name": "AvImguiPlugin",
-        "path": "res://plugins/avImguiPlugin/bin"
-    }
+    "res://plugins/avImguiPlugin"
 ]
 ```
 
-`path` may also be an array of candidate locations (directories or direct file paths), tried in order. This is convenient during development to prefer a locally built binary:
+The engine reads `avPlugin.cfg` from that directory to find the plugin's name and its binaries. The shipped one points at `bin/`; its `Bin.Path` may also be an array of candidate locations (directories or direct file paths), tried in order, which is convenient during development to prefer a locally built binary:
 
 ```json
-"Plugins": [
-    {
-        "name": "AvImguiPlugin",
-        "path": [
-            "res://native/build/plugin/libAvImguiPlugin.so",
-            "res://plugins/avImguiPlugin/bin"
+{
+    "Name": "AvImguiPlugin",
+    "Bin": {
+        "Path": [
+            "../../native/build/plugin/libAvImguiPlugin.so",
+            "bin"
         ]
     }
-]
+}
 ```
 
 3. Call `_imgui` functions from an `update` callback. There is no frame lifecycle to manage — the first `_imgui` call of each frame begins the imgui frame, and the compositor renders it after the scene:
@@ -73,6 +72,21 @@ function update(){
     _imgui.showDemoWindow();
 }
 ```
+
+## Examples
+
+[examples/](examples) holds two runnable projects, each a setup file and one script:
+
+| | |
+|---|---|
+| [examples/demo](examples/demo) | A debug tools overlay — menus, value widgets, a table, a frame time plot. |
+| [examples/docking](examples/docking) | The [docking](#docking) api — a full screen dockspace, windows docked into it from script, a nested dockspace, and the docking options. |
+
+```bash
+/path/to/avEngine/build/Debug/av.app/Contents/MacOS/av examples/docking/avSetup.cfg
+```
+
+Both load the plugin from `plugins/avImguiPlugin`, so stage a build or a downloaded distribution there first. See [examples/README.md](examples/README.md).
 
 ## The frame model
 
@@ -191,6 +205,50 @@ if(_imgui.colorEdit3("Tint", col)){
 | `getWindowWidth()` / `getWindowHeight()` → float | |
 | `getContentRegionAvail()` → [w, h] | |
 | `isWindowHovered(flags = 0)` / `isWindowFocused(flags = 0)` / `isWindowCollapsed()` → bool | |
+
+### Docking
+
+From the docking branch. Docking is **enabled by default**: windows can be dragged onto one another to merge into a tab bar without the script doing anything. A *dockspace* is an explicit region that windows can be docked into, which is what most debug tooling wants.
+
+```squirrel
+function update(){
+    //A full screen dockspace, with the middle left transparent so the game
+    //still shows through it.
+    local dock = _imgui.dockSpaceOverViewport(null, _imgui.DockNodeFlags_PassthruCentralNode);
+
+    //Windows submitted after it can be docked into it, by hand or from script.
+    _imgui.setNextWindowDockId(dock, _imgui.Cond_FirstUseEver);
+    _imgui.begin("Entities");
+    _imgui.end();
+}
+```
+
+| Function | Notes |
+|---|---|
+| `dockSpace(id, w = 0, h = 0, flags = 0)` → int | A dockspace inside the current window. `id` is a string or an integer id. Returns the node id. |
+| `dockSpaceOverViewport(id = null, flags = 0)` → int | A dockspace covering the whole display. Returns the node id. |
+| `setNextWindowDockId(id, cond = 0)` | Dock the next window into that node. Use `Cond_FirstUseEver` to place it without pinning it every frame. |
+| `getWindowDockId()` → int | The current window's dock id, or 0 if it is not docked. |
+| `isWindowDocked()` → bool | Whether the current window is docked into a node. |
+| `getId(str)` → int | The imgui id for a string, hashed the way a widget label is. |
+| `setDockingEnabled(bool)` / `getDockingEnabled()` → bool | Docking as a whole. |
+| `setDockingNoSplit(bool)` / `getDockingNoSplit()` → bool | Docking merges into tab bars only, no splitting. |
+| `setDockingWithShift(bool)` / `getDockingWithShift()` → bool | Require shift to be held to dock, so windows are not docked by accident. |
+| `setDockingAlwaysTabBar(bool)` / `getDockingAlwaysTabBar()` → bool | Give every floating window its own tab bar. |
+
+Rules worth knowing, because breaking either raises an imgui assertion which stops the engine rather than a recoverable error:
+
+- **Submit a dockspace every frame it is in use.** A dockspace which stops being submitted has its node dropped and its windows undocked. A dockspace which is temporarily hidden (in a collapsed window, or an unselected tab) should be submitted with `DockNodeFlags_KeepAliveOnly`, which keeps the node without drawing it.
+- **Submit dockspaces before the windows that dock into them.** A window submitted before its host is undocked again.
+- The same dockspace id may only be submitted once per frame, unless the submission uses `DockNodeFlags_KeepAliveOnly`.
+
+`dockSpace` takes either a string, hashed like any other imgui id, or an integer id from an earlier call. The integer form matters because imgui hashes a string against the *current window*: `getId("x")` inside two different windows gives two different ids, so pass the id a dockspace returned rather than re-deriving it somewhere else.
+
+Because the plugin disables settings persistence there is no `imgui.ini`, so **dock layouts are not remembered between runs**, the same as window positions. Scripts that want a fixed layout should place windows with `setNextWindowDockId` each run, using `Cond_FirstUseEver` so the user can still rearrange them.
+
+`dockSpace` and `dockSpaceOverViewport` raise a squirrel error if docking has been turned off, rather than quietly drawing nothing.
+
+**Multi-viewport is not available.** The docking branch also offers multi-viewport, which moves imgui windows out into real OS windows. That needs a platform backend to create, position and present those windows; this plugin has none, taking input from the engine's `InputManager` and rendering through a single Ogre compositor pass into the engine's render target. `ImGuiConfigFlags_ViewportsEnable` is therefore never set and is not exposed. Docking works entirely inside the engine's window.
 
 ### Text
 
@@ -317,6 +375,7 @@ if(_imgui.beginTable("entities", 2, _imgui.TableFlags_Borders | _imgui.TableFlag
 | Function | Notes |
 |---|---|
 | `pushId(stringOrInt)` / `popId()` | Disambiguate identical labels, e.g. in loops. |
+| `getId(str)` → int | The id imgui would give that string here. See [Docking](#docking). |
 | `pushStyleColor(colConstant, r, g, b, a)` / `popStyleColor(count = 1)` | |
 | `pushStyleVar(varConstant, value)` or `pushStyleVar(varConstant, x, y)` / `popStyleVar(count = 1)` | |
 
@@ -342,7 +401,7 @@ if(_imgui.beginTable("entities", 2, _imgui.TableFlags_Borders | _imgui.TableFlag
 
 Integer constants mirror the imgui enums, without the `ImGui` prefix:
 
-`WindowFlags_*`, `ChildFlags_*`, `Cond_*`, `Dir_*`, `Col_*`, `StyleVar_*`, `TreeNodeFlags_*`, `InputTextFlags_*`, `SelectableFlags_*`, `ComboFlags_*`, `TableFlags_*`, `TableColumnFlags_*`, `TableRowFlags_*`, `TabBarFlags_*`, `TabItemFlags_*`, `HoveredFlags_*`, `FocusedFlags_*`, `PopupFlags_*`, `SliderFlags_*`, `ColorEditFlags_*`, `MouseButton_*`
+`WindowFlags_*`, `ChildFlags_*`, `DockNodeFlags_*`, `Cond_*`, `Dir_*`, `Col_*`, `StyleVar_*`, `TreeNodeFlags_*`, `InputTextFlags_*`, `SelectableFlags_*`, `ComboFlags_*`, `TableFlags_*`, `TableColumnFlags_*`, `TableRowFlags_*`, `TabBarFlags_*`, `TabItemFlags_*`, `HoveredFlags_*`, `FocusedFlags_*`, `PopupFlags_*`, `SliderFlags_*`, `ColorEditFlags_*`, `MouseButton_*`
 
 See [native/plugin/src/Scripting/ImguiConstants.cpp](native/plugin/src/Scripting/ImguiConstants.cpp) for the full list.
 
@@ -363,7 +422,7 @@ cmake --build .
 
 This produces `plugin/libAvImguiPlugin.so` (`AvImguiPlugin.dll` on Windows) and `plugin/libAvImguiPlugin_static.a`. On macOS and Linux the module leaves engine and Ogre symbols undefined, resolving them from the host executable at load time; on Windows it links against `avCore.lib`, Ogre, Squirrel and SDL2 from the dependency directory (the engine's import library is searched at `${ENGINE_SOURCE_PATH}/build/${CMAKE_BUILD_TYPE}`).
 
-Dear ImGui itself is vendored in [native/imgui](native/imgui) and compiled into the plugin — the engine and project never need an imgui dependency.
+Dear ImGui itself is vendored in [native/imgui](native/imgui) and compiled into the plugin — the engine and project never need an imgui dependency. The vendored copy is the `v1.92.8-docking` tag of [ocornut/imgui](https://github.com/ocornut/imgui), i.e. the docking branch at the same release as the master-branch copy it replaced, so the only difference from stock 1.92.8 is docking itself. To update it, copy the same file set (`imgui.h`, `imgui.cpp`, `imgui_draw.cpp`, `imgui_tables.cpp`, `imgui_widgets.cpp`, `imgui_demo.cpp`, `imgui_internal.h`, `imconfig.h`, `imstb_*.h`, `LICENSE.txt`) from a later `-docking` tag; nothing in it is patched locally.
 
 ## Versioning
 
@@ -372,8 +431,10 @@ The version lives in [native/plugin/src/Versions.h](native/plugin/src/Versions.h
 The plugin prints both to stdout when it loads, so a log says exactly what is running:
 
 ```
-AvImguiPlugin 0.1.0 unstable (79bf3dd) with Dear ImGui 1.92.8
+AvImguiPlugin 0.1.0 unstable (79bf3dd) with Dear ImGui 1.92.8 (docking)
 ```
+
+The `(docking)` suffix comes from imgui's own `IMGUI_HAS_DOCK`, so it says which branch is actually compiled in rather than what the build intended.
 
 ## Static builds (iOS)
 
@@ -421,39 +482,53 @@ The `runApiTests` job runs the test suite (below) on Linux under `xvfb` against 
 
 [test/](test/) holds an integration test suite that drives every `_imgui`
 function against a live engine, using the same [avTools](https://github.com/OtherMythos/avTools)
-test runner as the engine and ProceduralExplorationGame. Each of the ~16 test
+test runner as the engine and ProceduralExplorationGame. Each of the ~17 test
 cases (`test/integration/Api/*`) covers one area of the api — widgets, value
-round-tripping, tables, popups, the ~245 constants, argument validation, and so
-on — and asserts real behaviour, not just the absence of a crash: a value widget
+round-tripping, tables, popups, docking, the ~255 constants, argument validation,
+and so on — and asserts real behaviour, not just the absence of a crash: a value widget
 must return exactly what went in, an untouched button must report no click, a
 bad call must raise a squirrel error rather than take the engine down.
 
 Run it against a local `TEST_MODE` engine build with a locally built plugin:
 
+The tests load the plugin from `plugins/avImguiPlugin`, which is where the
+distribution is extracted (and where CI stages the freshly built artifact). To
+run them against a local build, copy it in under the name the engine looks for,
+which is `lib<name>_<buildType>-<platform>-<arch>.so`:
+
 ```bash
 # build the plugin first (see Building), then stage it where the tests look:
-mkdir -p test/plugins
-cp native/build/plugin/libAvImguiPlugin.so test/plugins/
+cp native/build/plugin/libAvImguiPlugin.so \
+   plugins/avImguiPlugin/bin/libAvImguiPlugin_Debug-macos-arm64.so
 
 python /path/to/avTools/testRunner/testRunner.py \
     -e /path/to/avEngine/build/Debug/av.app/Contents/MacOS/av \
     -p test/avTests.cfg
 ```
 
+The plugin prints its imgui version as it loads, so the log confirms which
+binary was actually picked up.
+
 The harness ([test/testSetup.nut](test/testSetup.nut)) runs one test per
 rendered frame, so each test gets a fresh imgui frame and frame-dependent
-behaviour (like `isFirstUpdateOfFrame`) is exercised naturally.
+behaviour (like `isFirstUpdateOfFrame`) is exercised naturally. Tests of state
+that only settles on a later frame — a collapsed window, an established dock
+node — are written as consecutive pairs for that reason.
 
-Two imgui usage rules the suite documents, because breaking either raises an
-imgui assertion that stops the engine rather than a recoverable error:
+Four imgui usage rules the suite documents, because breaking any of them raises
+an imgui assertion that stops the engine rather than a recoverable error:
 
 - A widget label may not be empty; use `##hidden` for an id without a visible label.
 - `setCursorPos` past the window edge must be followed by an item (e.g. `text`)
   so imgui can grow the window to fit.
+- A dockspace id may only be submitted once a frame, unless the submission uses
+  `DockNodeFlags_KeepAliveOnly`.
+- A window docking into a dockspace must be submitted after the dockspace's host
+  window.
 
 # Architecture notes
 
-- `native/plugin/src/ImguiOgre/` is a baked-in copy of the renderer from [ogre-next-imgui](https://github.com/edherbert/ogre-next-imgui), ported to imgui 1.92 (texture id api, event based input) and re-architected to render from a compositor pass instead of a frame listener. The imgui shaders for Metal, Vulkan, D3D11 and OpenGL are embedded as source strings, so no resource files are required.
+- `native/plugin/src/ImguiOgre/` is a baked-in copy of the renderer from [ogre-next-imgui](https://github.com/edherbert/ogre-next-imgui), ported to imgui 1.92 (texture id api, event based input) and re-architected to render from a compositor pass instead of a frame listener. It needs nothing extra for the docking branch: without multi-viewport every docked window still ends up in the main viewport's draw data, which is what the pass already renders. The imgui shaders for Metal, Vulkan, D3D11 and OpenGL are embedded as source strings, so no resource files are required.
 - `native/plugin/src/Compositor/` implements the `imgui` custom pass and the delegating pass provider.
 - `native/plugin/src/Input/ImguiInput.cpp` polls the engine's `InputManager` each frame and feeds imgui's io queue. It uses only the SDL scancode enum (a compile-time constant), never an SDL runtime symbol, because the engine links SDL statically without re-exporting it — a plugin that called SDL would fail to load on Linux.
 - `native/plugin/src/Scripting/` contains the `_imgui` namespace bindings and constants.

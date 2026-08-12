@@ -604,6 +604,16 @@ namespace AVImgui{
         //window positions into the working directory of whatever loads the
         //plugin.
         io.IniFilename = 0;
+        //Docking is on by default: this is the docking branch of imgui and
+        //docking is the reason for it. Scripts can turn it off with
+        //_imgui.setDockingEnabled(false).
+        io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+        //ImGuiConfigFlags_ViewportsEnable is deliberately never set. Multi
+        //viewport moves imgui windows into real OS windows, which needs a
+        //platform backend to create and present them. The plugin has none: it
+        //takes input from the engine's InputManager and renders through a
+        //single Ogre compositor pass into the engine's render target.
+        //@see ImguiInput, CompositorPassImgui.
         unsigned char* pixels;
         int width, height;
 

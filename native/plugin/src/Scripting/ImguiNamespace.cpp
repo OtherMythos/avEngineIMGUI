@@ -321,6 +321,125 @@ namespace AVImgui{
         }
 
         //---------------------------------------------------------------------
+        //Docking
+        //
+        //From the docking branch of imgui. Docking happens entirely inside the
+        //engine's render target: multi viewport (imgui windows in real OS
+        //windows) is never enabled, as the plugin has no platform backend.
+        //@see ImguiManager::createFontTexture
+        //---------------------------------------------------------------------
+        inline bool dockingEnabled(){
+            return (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DockingEnable) != 0;
+        }
+
+        //A dock id is either a string, hashed the way imgui hashes any id, or
+        //an integer previously returned by dockSpace, dockSpaceOverViewport or
+        //getId. Strings are the convenient form; the integer form is what makes
+        //an id from one call usable in another.
+        inline ImGuiID readDockId(HSQUIRRELVM vm, SQInteger idx){
+            if(sq_gettype(vm, idx) == OT_STRING){
+                const SQChar* str;
+                sq_getstring(vm, idx, &str);
+                return ImGui::GetID(str);
+            }
+            SQInteger value = 0;
+            sq_getinteger(vm, idx, &value);
+            return (ImGuiID)value;
+        }
+
+        SQInteger dockSpace(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            if(!dockingEnabled()){
+                return sq_throwerror(vm, "dockSpace requires docking, which is disabled. Call setDockingEnabled(true) first.");
+            }
+            ImGuiID id = readDockId(vm, 2);
+            //imgui asserts on a zero id, which would stop the engine.
+            if(id == 0){
+                return sq_throwerror(vm, "dockSpace requires a non-zero dock id.");
+            }
+            float w = (float)getFloatOr(vm, 3, 0.0f);
+            float h = (float)getFloatOr(vm, 4, 0.0f);
+            ImGuiDockNodeFlags flags = (ImGuiDockNodeFlags)getIntOr(vm, 5, 0);
+            sq_pushinteger(vm, (SQInteger)ImGui::DockSpace(id, ImVec2(w, h), flags));
+            return 1;
+        }
+        SQInteger dockSpaceOverViewport(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            if(!dockingEnabled()){
+                return sq_throwerror(vm, "dockSpaceOverViewport requires docking, which is disabled. Call setDockingEnabled(true) first.");
+            }
+            //Optional id first, so dockSpaceOverViewport() alone is the common
+            //case: imgui then derives its own id.
+            ImGuiID id = 0;
+            if(sq_gettop(vm) >= 2 && sq_gettype(vm, 2) != OT_NULL){
+                id = readDockId(vm, 2);
+            }
+            ImGuiDockNodeFlags flags = (ImGuiDockNodeFlags)getIntOr(vm, 3, 0);
+            //The viewport is always the main one, there being only one.
+            sq_pushinteger(vm, (SQInteger)ImGui::DockSpaceOverViewport(id, ImGui::GetMainViewport(), flags));
+            return 1;
+        }
+        SQInteger setNextWindowDockId(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            ImGuiID id = readDockId(vm, 2);
+            ImGuiCond cond = (ImGuiCond)getIntOr(vm, 3, 0);
+            ImGui::SetNextWindowDockID(id, cond);
+            return 0;
+        }
+        SQInteger getWindowDockId(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            sq_pushinteger(vm, (SQInteger)ImGui::GetWindowDockID());
+            return 1;
+        }
+        SQInteger isWindowDocked(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            sq_pushbool(vm, ImGui::IsWindowDocked());
+            return 1;
+        }
+        SQInteger setDockingEnabled(HSQUIRRELVM vm){
+            SQBool enabled;
+            sq_getbool(vm, 2, &enabled);
+            ImGuiIO& io = ImGui::GetIO();
+            if(enabled != SQFalse) io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+            else io.ConfigFlags &= ~ImGuiConfigFlags_DockingEnable;
+            return 0;
+        }
+        SQInteger getDockingEnabled(HSQUIRRELVM vm){
+            sq_pushbool(vm, dockingEnabled());
+            return 1;
+        }
+        SQInteger setDockingNoSplit(HSQUIRRELVM vm){
+            SQBool value;
+            sq_getbool(vm, 2, &value);
+            ImGui::GetIO().ConfigDockingNoSplit = value != SQFalse;
+            return 0;
+        }
+        SQInteger getDockingNoSplit(HSQUIRRELVM vm){
+            sq_pushbool(vm, ImGui::GetIO().ConfigDockingNoSplit);
+            return 1;
+        }
+        SQInteger setDockingWithShift(HSQUIRRELVM vm){
+            SQBool value;
+            sq_getbool(vm, 2, &value);
+            ImGui::GetIO().ConfigDockingWithShift = value != SQFalse;
+            return 0;
+        }
+        SQInteger getDockingWithShift(HSQUIRRELVM vm){
+            sq_pushbool(vm, ImGui::GetIO().ConfigDockingWithShift);
+            return 1;
+        }
+        SQInteger setDockingAlwaysTabBar(HSQUIRRELVM vm){
+            SQBool value;
+            sq_getbool(vm, 2, &value);
+            ImGui::GetIO().ConfigDockingAlwaysTabBar = value != SQFalse;
+            return 0;
+        }
+        SQInteger getDockingAlwaysTabBar(HSQUIRRELVM vm){
+            sq_pushbool(vm, ImGui::GetIO().ConfigDockingAlwaysTabBar);
+            return 1;
+        }
+
+        //---------------------------------------------------------------------
         //Text
         //---------------------------------------------------------------------
         SQInteger text(HSQUIRRELVM vm){
@@ -1159,6 +1278,16 @@ namespace AVImgui{
             ImGui::PopID();
             return 0;
         }
+        SQInteger getId(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            const SQChar* str;
+            sq_getstring(vm, 2, &str);
+            //Hashed against the current window and id stack, exactly as imgui
+            //hashes a widget label, so the same string yields the same id only
+            //in the same place.
+            sq_pushinteger(vm, (SQInteger)ImGui::GetID(str));
+            return 1;
+        }
         SQInteger pushStyleColor(HSQUIRRELVM vm){
             IMGUI_FRAME_GUARD
             SQInteger idx;
@@ -1238,6 +1367,21 @@ namespace AVImgui{
         AV::ScriptUtils::addFunction(vm, isWindowHovered, "isWindowHovered", -1, ".i");
         AV::ScriptUtils::addFunction(vm, isWindowFocused, "isWindowFocused", -1, ".i");
         AV::ScriptUtils::addFunction(vm, isWindowCollapsed, "isWindowCollapsed", 1, ".");
+
+        //Docking
+        AV::ScriptUtils::addFunction(vm, dockSpace, "dockSpace", -2, ".s|inni");
+        AV::ScriptUtils::addFunction(vm, dockSpaceOverViewport, "dockSpaceOverViewport", -1, ".s|i|oi");
+        AV::ScriptUtils::addFunction(vm, setNextWindowDockId, "setNextWindowDockId", -2, ".s|ii");
+        AV::ScriptUtils::addFunction(vm, getWindowDockId, "getWindowDockId", 1, ".");
+        AV::ScriptUtils::addFunction(vm, isWindowDocked, "isWindowDocked", 1, ".");
+        AV::ScriptUtils::addFunction(vm, setDockingEnabled, "setDockingEnabled", 2, ".b");
+        AV::ScriptUtils::addFunction(vm, getDockingEnabled, "getDockingEnabled", 1, ".");
+        AV::ScriptUtils::addFunction(vm, setDockingNoSplit, "setDockingNoSplit", 2, ".b");
+        AV::ScriptUtils::addFunction(vm, getDockingNoSplit, "getDockingNoSplit", 1, ".");
+        AV::ScriptUtils::addFunction(vm, setDockingWithShift, "setDockingWithShift", 2, ".b");
+        AV::ScriptUtils::addFunction(vm, getDockingWithShift, "getDockingWithShift", 1, ".");
+        AV::ScriptUtils::addFunction(vm, setDockingAlwaysTabBar, "setDockingAlwaysTabBar", 2, ".b");
+        AV::ScriptUtils::addFunction(vm, getDockingAlwaysTabBar, "getDockingAlwaysTabBar", 1, ".");
 
         //Text
         AV::ScriptUtils::addFunction(vm, text, "text", 2, ".s");
@@ -1358,6 +1502,7 @@ namespace AVImgui{
         //ID, style
         AV::ScriptUtils::addFunction(vm, pushId, "pushId", 2, ".s|i");
         AV::ScriptUtils::addFunction(vm, popId, "popId", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getId, "getId", 2, ".s");
         AV::ScriptUtils::addFunction(vm, pushStyleColor, "pushStyleColor", 6, ".innnn");
         AV::ScriptUtils::addFunction(vm, popStyleColor, "popStyleColor", -1, ".i");
         AV::ScriptUtils::addFunction(vm, pushStyleVar, "pushStyleVar", -3, ".inn");

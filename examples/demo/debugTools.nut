@@ -1,5 +1,7 @@
 //An example debug tools overlay built with the _imgui namespace.
 //Run with the avSetup.cfg in this directory (with plugin binaries in plugins/).
+//
+//For the docking api specifically, see ../docking.
 
 //Persistent gui state. Immediate mode guis keep state in your code.
 local state = {

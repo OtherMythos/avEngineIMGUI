@@ -58,7 +58,13 @@ namespace AVImgui{
         std::cout << "AvImguiPlugin " << AV_IMGUI_PLUGIN_VERSION_STRING
                   << " " << AV_IMGUI_PLUGIN_VERSION_SUFFIX
                   << " (" << kGitHash << ")"
-                  << " with Dear ImGui " << IMGUI_VERSION << std::endl;
+                  //IMGUI_HAS_DOCK marks the docking branch, which is what this
+                  //plugin vendors. Printed so a log says which imgui is in use.
+                  << " with Dear ImGui " << IMGUI_VERSION
+#ifdef IMGUI_HAS_DOCK
+                  << " (docking)"
+#endif
+                  << std::endl;
 
         Ogre::Root* root = Ogre::Root::getSingletonPtr();
         Ogre::CompositorManager2* compositorManager = root->getCompositorManager2();

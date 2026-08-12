@@ -19,7 +19,15 @@ _t("WindowFlags", "Every WindowFlags constant is exposed as an integer", functio
         "WindowFlags_HorizontalScrollbar", "WindowFlags_NoFocusOnAppearing", "WindowFlags_NoBringToFrontOnFocus",
         "WindowFlags_AlwaysVerticalScrollbar", "WindowFlags_AlwaysHorizontalScrollbar", "WindowFlags_NoNavInputs",
         "WindowFlags_NoNavFocus", "WindowFlags_UnsavedDocument", "WindowFlags_NoNav",
-        "WindowFlags_NoDecoration", "WindowFlags_NoInputs"
+        "WindowFlags_NoDecoration", "WindowFlags_NoInputs", "WindowFlags_NoDocking"
+    ]);
+});
+
+_t("DockNodeFlags", "Every DockNodeFlags constant is exposed as an integer", function(){
+    ::checkConstants("DockNodeFlags", [
+        "DockNodeFlags_None", "DockNodeFlags_KeepAliveOnly", "DockNodeFlags_NoDockingOverCentralNode",
+        "DockNodeFlags_PassthruCentralNode", "DockNodeFlags_NoDockingSplit", "DockNodeFlags_NoResize",
+        "DockNodeFlags_AutoHideTabBar", "DockNodeFlags_NoUndocking"
     ]);
 });
 
@@ -56,7 +64,8 @@ _t("Col", "Every Col constant is exposed as an integer", function(){
         "Col_ButtonHovered", "Col_ButtonActive", "Col_Header",
         "Col_HeaderHovered", "Col_HeaderActive", "Col_Separator",
         "Col_PlotLines", "Col_PlotHistogram", "Col_TableHeaderBg",
-        "Col_TableRowBg", "Col_TableRowBgAlt"
+        "Col_TableRowBg", "Col_TableRowBgAlt", "Col_DockingPreview",
+        "Col_DockingEmptyBg"
     ]);
 });
 
@@ -71,7 +80,7 @@ _t("StyleVar", "Every StyleVar constant is exposed as an integer", function(){
         "StyleVar_ScrollbarSize", "StyleVar_ScrollbarRounding", "StyleVar_GrabMinSize",
         "StyleVar_GrabRounding", "StyleVar_TabRounding", "StyleVar_ButtonTextAlign",
         "StyleVar_SelectableTextAlign", "StyleVar_SeparatorTextBorderSize", "StyleVar_SeparatorTextAlign",
-        "StyleVar_SeparatorTextPadding"
+        "StyleVar_SeparatorTextPadding", "StyleVar_DockingSeparatorSize"
     ]);
 });
 

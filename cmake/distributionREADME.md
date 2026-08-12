@@ -64,7 +64,11 @@ Then build the engine with `-DUSE_STATIC_PLUGINS=True -DAV_PROJECT_DIR=<project>
 
 ## Notes
 
+- This is the docking branch of imgui, and docking is enabled: windows can be dragged
+  onto one another, and `dockSpace`/`dockSpaceOverViewport` create regions to dock them
+  into. Multi-viewport (imgui windows as real OS windows) is not available, as the
+  plugin has no platform backend.
 - imgui's settings persistence is disabled, so no `imgui.ini` is written and window
-  positions are not remembered between runs. Place windows from script with
-  `setNextWindowPos`/`setNextWindowSize`.
+  positions and dock layouts are not remembered between runs. Place windows from script
+  with `setNextWindowPos`/`setNextWindowSize`/`setNextWindowDockId`.
 - Full API reference and source: https://github.com/OtherMythos/avEngineIMGUI
