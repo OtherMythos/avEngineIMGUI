@@ -86,7 +86,7 @@ namespace AVImgui{
             for(int i = 0; i < count; i++){
                 sq_pushinteger(vm, i);
                 sq_pushfloat(vm, vals[i]);
-                sq_set(vm, idx);
+                sq_rawset(vm, idx);
             }
         }
 
@@ -110,7 +110,7 @@ namespace AVImgui{
             for(int i = 0; i < count; i++){
                 sq_pushinteger(vm, i);
                 sq_pushinteger(vm, vals[i]);
-                sq_set(vm, idx);
+                sq_rawset(vm, idx);
             }
         }
 
