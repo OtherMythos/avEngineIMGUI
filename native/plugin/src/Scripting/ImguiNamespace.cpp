@@ -771,6 +771,26 @@ namespace AVImgui{
             return 0;
         }
 
+        SQInteger imageButton(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            const SQChar* id;
+            sq_getstring(vm, 2, &id);
+
+            Ogre::TextureGpu* texture = 0;
+            SQInteger readResult = readTexture(vm, 3, &texture);
+            if(readResult != 0) return readResult;
+
+            SQFloat w, h;
+            sq_getfloat(vm, 4, &w);
+            sq_getfloat(vm, 5, &h);
+            const ImVec2 size((float)w, (float)h);
+            const ImVec2 uv0((float)getFloatOr(vm, 6, 0.0f), (float)getFloatOr(vm, 7, 0.0f));
+            const ImVec2 uv1((float)getFloatOr(vm, 8, 1.0f), (float)getFloatOr(vm, 9, 1.0f));
+
+            sq_pushbool(vm, ImGui::ImageButton(id, (ImTextureID)(uintptr_t)texture, size, uv0, uv1));
+            return 1;
+        }
+
         //---------------------------------------------------------------------
         //Value widgets. These take the current value and return the new value.
         //---------------------------------------------------------------------
@@ -1744,6 +1764,7 @@ namespace AVImgui{
 
         //Images
         AV::ScriptUtils::addFunction(vm, image, "image", -4, ".unnnnnn");
+        AV::ScriptUtils::addFunction(vm, imageButton, "imageButton", -5, ".sunnnnnn");
 
         //Value widgets
         AV::ScriptUtils::addFunction(vm, sliderFloat, "sliderFloat", -5, ".snnns|oi");

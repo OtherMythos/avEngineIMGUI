@@ -47,6 +47,15 @@ _t("imageUvs", "Uvs are optional and a sub-rect can be drawn", function(){
     _imgui.end();
 });
 
+_t("imageButton", "Image buttons return false when untouched and accept sprite uvs", function(){
+    _imgui.begin("images/imageButton");
+
+    _test.assertFalse(_imgui.imageButton("full", imageTexture, 32, 32));
+    _test.assertFalse(_imgui.imageButton("sprite", imageTexture, 32, 32, 0, 0, 0.5, 0.5));
+
+    _imgui.end();
+});
+
 _t("imageErrors", "Bad arguments are errors rather than crashes", function(){
     _imgui.begin("images/imageErrors");
 
