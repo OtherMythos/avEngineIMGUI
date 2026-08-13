@@ -6,6 +6,27 @@ _t("beginEnd", "begin returns a bool and pairs with end", function(){
     _imgui.end();
 });
 
+_t("beginClosable", "beginClosable returns visibility and open state as a pair", function(){
+    local state = _imgui.beginClosable("windows/closable");
+    _imgui.end();
+
+    _test.assertEqual("array", typeof state);
+    _test.assertEqual(2, state.len());
+    _test.assertEqual("bool", typeof state[0]);
+    //Nothing has clicked the close button, so the window is still open.
+    _test.assertTrue(state[1]);
+});
+
+_t("beginClosableWithFlags", "beginClosable accepts window flags", function(){
+    //A window with no title bar has nowhere to put the close button, which imgui
+    //allows rather than treating as a contradiction.
+    local state = _imgui.beginClosable("windows/closableFlags",
+        _imgui.WindowFlags_NoTitleBar | _imgui.WindowFlags_NoResize);
+    _imgui.end();
+
+    _test.assertTrue(state[1]);
+});
+
 _t("beginWithFlags", "begin accepts window flags", function(){
     local flags = _imgui.WindowFlags_NoTitleBar
                 | _imgui.WindowFlags_NoResize

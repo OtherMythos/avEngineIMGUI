@@ -263,6 +263,31 @@ namespace AVImgui{
             sq_pushbool(vm, ImGui::Begin(name, 0, flags));
             return 1;
         }
+        SQInteger beginClosable(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            const SQChar* name;
+            sq_getstring(vm, 2, &name);
+            ImGuiWindowFlags flags = (ImGuiWindowFlags)getIntOr(vm, 3, 0);
+
+            //Handing imgui somewhere to write is what puts the close button in
+            //the title bar, and on the window's tab once it is docked. Nothing
+            //else turns it on - there is no window flag for a close button.
+            //
+            //Whether the window is open belongs to the script, so this starts
+            //true every frame and reports back rather than remembering. imgui
+            //only ever writes false into it, on the frame the button is clicked.
+            bool open = true;
+            bool visible = ImGui::Begin(name, &open, flags);
+
+            //Both, because they answer different questions: whether to draw the
+            //contents, and whether the window has just been closed.
+            sq_newarray(vm, 0);
+            sq_pushbool(vm, visible);
+            sq_arrayappend(vm, -2);
+            sq_pushbool(vm, open);
+            sq_arrayappend(vm, -2);
+            return 1;
+        }
         SQInteger end(HSQUIRRELVM vm){
             IMGUI_FRAME_GUARD
             ImGui::End();
@@ -1656,6 +1681,7 @@ namespace AVImgui{
 
         //Windows
         AV::ScriptUtils::addFunction(vm, begin, "begin", -2, ".si");
+        AV::ScriptUtils::addFunction(vm, beginClosable, "beginClosable", -2, ".si");
         AV::ScriptUtils::addFunction(vm, end, "end", 1, ".");
         AV::ScriptUtils::addFunction(vm, beginChild, "beginChild", -2, ".snnii");
         AV::ScriptUtils::addFunction(vm, endChild, "endChild", 1, ".");
