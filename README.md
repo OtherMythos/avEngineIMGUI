@@ -246,6 +246,42 @@ Rules worth knowing, because breaking either raises an imgui assertion which sto
 
 Because the plugin disables settings persistence there is no `imgui.ini`, so **dock layouts are not remembered between runs**, the same as window positions. Scripts that want a fixed layout should place windows with `setNextWindowDockId` each run, using `Cond_FirstUseEver` so the user can still rearrange them.
 
+#### The dock builder
+
+`setNextWindowDockId` puts every window in the same node, so they arrive as tabs on top of one another. Describing a layout — this panel down the left, that one down the right, the rest in the middle — means building the nodes first and docking windows into them by name.
+
+| Function | Notes |
+|---|---|
+| `dockBuilderAddNode(id = 0, flags = 0)` → int | Create a node. `id` of 0 lets imgui pick one, which `DockNodeFlags_DockSpace` does not allow. Returns the node id. |
+| `dockBuilderRemoveNode(id)` | Remove the node and its children, undocking their windows. |
+| `dockBuilderSetNodeSize(id, w, h)` | Splits are proportional, so a node needs a size before it is split. |
+| `dockBuilderSplitNode(id, dir, sizeRatio)` → [int, int] | Split into two children: `[node at dir, node at the opposite side]`. `dir` is a `Dir_` constant. |
+| `dockBuilderDockWindow(windowName, id)` | Dock a window by title, whether or not it has ever been submitted. |
+| `dockBuilderFinish(id)` | Call once the layout is described. |
+
+```squirrel
+//Built once, on a frame where the dockspace already exists.
+local dock = _imgui.dockSpaceOverViewport();
+
+_imgui.dockBuilderRemoveNode(dock);
+_imgui.dockBuilderAddNode(dock, _imgui.DockNodeFlags_DockSpace);
+local size = _imgui.getDisplaySize();
+_imgui.dockBuilderSetNodeSize(dock, size[0], size[1]);
+
+//Each split returns both halves; the remainder is what the next split works on.
+local left = _imgui.dockBuilderSplitNode(dock, _imgui.Dir_Left, 0.2);
+local right = _imgui.dockBuilderSplitNode(left[1], _imgui.Dir_Right, 0.25);
+
+_imgui.dockBuilderDockWindow("Scene Tree", left[0]);
+_imgui.dockBuilderDockWindow("Properties", right[0]);
+_imgui.dockBuilderDockWindow("Scene", right[1]);
+_imgui.dockBuilderFinish(dock);
+```
+
+Splitting a node makes it the *parent* of two new nodes, so the id which was split is no longer somewhere windows can be docked — use the halves it returned. The layout is built once rather than every frame; the node still has to be submitted every frame afterwards, like any other dockspace.
+
+Note that imgui gives an explicit position priority over a dock id: a window which calls `setNextWindowPos` will float over the layout rather than dock into it, so a panel with a default position should skip it when it has somewhere to dock.
+
 `dockSpace` and `dockSpaceOverViewport` raise a squirrel error if docking has been turned off, rather than quietly drawing nothing.
 
 **Multi-viewport is not available.** The docking branch also offers multi-viewport, which moves imgui windows out into real OS windows. That needs a platform backend to create, position and present those windows; this plugin has none, taking input from the engine's `InputManager` and rendering through a single Ogre compositor pass into the engine's render target. `ImGuiConfigFlags_ViewportsEnable` is therefore never set and is not exposed. Docking works entirely inside the engine's window.
@@ -273,6 +309,32 @@ Because the plugin disables settings persistence there is no `imgui.ini`, so **d
 | `selectable(label, selected = false, flags = 0, w = 0, h = 0)` → bool | True when clicked. |
 | `progressBar(fraction, w = -remaining, h = 0, overlay = null)` | |
 | `bullet()` | |
+
+### Images
+
+| Function | Notes |
+|---|---|
+| `image(texture, w, h, uv0x = 0, uv0y = 0, uv1x = 1, uv1y = 1)` | Draws an engine texture. |
+
+`texture` is one of the engine's texture objects — `_graphics.createTexture`, `_graphics.createOrRetreiveTexture` or `_window.getRenderTexture()`. This is what puts a rendered scene inside a docked window: render it to a texture with a compositor workspace, then draw that texture in a window sized to `getContentRegionAvail`.
+
+```squirrel
+local tex = _graphics.createTexture("editor/sceneTexture");
+tex.setPixelFormat(_PFG_RGBA8_UNORM);
+tex.setResolution(1280, 720);
+tex.scheduleTransitionTo(_GPU_RESIDENCY_RESIDENT);
+_compositor.addWorkspace([tex], _camera.getCamera(), "editor/SceneToTexture", true);
+
+//...then each frame:
+_imgui.begin("Scene");
+local size = _imgui.getContentRegionAvail();
+_imgui.image(tex, size[0], size[1]);
+_imgui.end();
+```
+
+The uvs default to the whole texture. Passing them flipped (`0, 1, 1, 0`) turns the image upside down, which is how a render target is corrected on a graphics api whose texture origin disagrees with the one it was rendered on.
+
+A texture which is not resident yet occupies its space without drawing, so an image which is still streaming in leaves the layout alone and appears when it arrives. A texture which has been destroyed is an error: the renderer binds the pointer the texture object holds, so a dangling one has to be refused rather than drawn.
 
 ### Value widgets
 
@@ -405,9 +467,41 @@ if(_imgui.beginTable("entities", 2, _imgui.TableFlags_Borders | _imgui.TableFlag
 | `isFirstUpdateOfFrame()` → bool | See the frame model section. |
 | `wantCaptureMouse()` / `wantCaptureKeyboard()` / `wantTextInput()` → bool | |
 | `setRenderingEnabled(bool)` | Quickly hide/show the gui without changing script logic. |
+| `setGlobalScale(float)` / `getGlobalScale()` → float | Scale the whole gui. See [High dpi displays](#high-dpi-displays). |
 | `createOverlayWorkspace()` → bool | Usually automatic. True if it was created, false if it already existed. |
 | `destroyOverlayWorkspace()` → bool | Also disables automatic re-creation. |
 | `setAutoOverlayEnabled(bool)` / `getAutoOverlayEnabled()` → bool | Turn off when rendering imgui through your own compositor pass. |
+
+### High dpi displays
+
+imgui is given the window's size in pixels as its display size, so on a screen
+with a scale factor — a retina Mac, a scaled Windows desktop — the gui is drawn
+at twice the resolution and therefore at half the physical size. The default
+13px font ends up looking tiny.
+
+`setGlobalScale` is the answer to that. It scales every style size and re-bakes
+the font at the scaled size, so text is drawn from glyphs of the right size
+rather than from a stretched 13px bitmap (imgui switches to a vector default
+font once the size makes that worthwhile):
+
+```squirrel
+function start(){
+    //The ratio between the window in pixels and the window in the units the
+    //desktop uses is the display's scale factor.
+    local windowSize = _window.getSize();
+    local pixelSize = _window.getActualSize();
+    _imgui.setGlobalScale(pixelSize.x / windowSize.x);
+}
+```
+
+A scale takes effect at the start of the next frame, because the font atlas
+cannot be replaced while a frame is being built. `getGlobalScale` reports the
+scale asked for, so it reads back the new value straight away. Setting the same
+scale again does nothing, so it is cheap to call every frame if the window can
+move between displays.
+
+Scaling does not change imgui's coordinates: positions and sizes are still in
+pixels, so window positions and dock layouts a script sets are unaffected.
 
 ### Constants
 
@@ -494,7 +588,7 @@ The `runApiTests` job runs the test suite (below) on Linux under `xvfb` against 
 
 [test/](test/) holds an integration test suite that drives every `_imgui`
 function against a live engine, using the same [avTools](https://github.com/OtherMythos/avTools)
-test runner as the engine and ProceduralExplorationGame. Each of the ~17 test
+test runner as the engine and ProceduralExplorationGame. Each of the ~18 test
 cases (`test/integration/Api/*`) covers one area of the api — widgets, value
 round-tripping, tables, popups, docking, the ~255 constants, argument validation,
 and so on — and asserts real behaviour, not just the absence of a crash: a value widget

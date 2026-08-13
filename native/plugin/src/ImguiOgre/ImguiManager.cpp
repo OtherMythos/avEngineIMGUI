@@ -16,7 +16,13 @@
 #include <OgreViewport.h>
 #include <OgreHlmsManager.h>
 
+#include <string>
+
 namespace AVImgui{
+
+    //The size imgui bakes the default font at when it is given none, and so
+    //the size a scale of 1 means. @see ImguiManager::buildFontTexture
+    static const float DEFAULT_FONT_SIZE = 13.0f;
 
     ImguiManager* ImguiManager::msSingleton = 0;
 
@@ -47,6 +53,9 @@ namespace AVImgui{
                                    mLastFreshDataFrame(0),
                                    mPrevWidth(0),
                                    mPrevHeight(0),
+                                   mGlobalScale(1.0f),
+                                   mPendingScale(0.0f),
+                                   mFontTexIndex(0),
                                    mLastPsoDescriptor(0),
                                    mHasFrameTime(false) {
     }
@@ -107,6 +116,16 @@ namespace AVImgui{
         if (mFrameActive) {
             ImGui::EndFrame();
             mFrameActive = false;
+        }
+
+        //No frame is in flight at this point, which is the only time the font
+        //atlas can be re-baked: imgui locks it for as long as a frame is being
+        //built, because this backend cannot update textures mid frame.
+        //@see setGlobalScale
+        if (mPendingScale > 0.0f) {
+            float scale = mPendingScale;
+            mPendingScale = 0.0f;
+            if (scale != mGlobalScale) applyGlobalScale(scale);
         }
 
         if (mPreNewFrameCallback) mPreNewFrameCallback();
@@ -614,15 +633,67 @@ namespace AVImgui{
         //takes input from the engine's InputManager and renders through a
         //single Ogre compositor pass into the engine's render target.
         //@see ImguiInput, CompositorPassImgui.
+
+        //The sizes imgui set up, kept before anything has had a chance to
+        //scale them. @see applyGlobalScale
+        mBaseStyle = ImGui::GetStyle();
+
+        buildFontTexture();
+    }
+
+    void ImguiManager::buildFontTexture() {
+        ImGuiIO& io = ImGui::GetIO();
+
+        //Building a frame locks the atlas, as this backend does not advertise
+        //ImGuiBackendFlags_RendererHasTextures and so cannot be handed a new
+        //texture part way through one. Unlocking is safe because rebuilds only
+        //happen between frames. @see ensureFrameStarted
+        io.Fonts->Locked = false;
+        io.Fonts->Clear();
+
+        //The atlas holds glyphs baked at the sizes asked for here and imgui
+        //stretches the nearest one for any other size, so a scaled gui gets a
+        //font baked at the scaled size rather than a blown up 13px bitmap.
+        //The size goes on the style before the font is added because
+        //AddFontDefault reads it to choose between the bitmap default font and
+        //the vector one, which is the one worth having once text is big enough
+        //to show the difference.
+        ImGuiStyle& style = ImGui::GetStyle();
+        const float fontSize = DEFAULT_FONT_SIZE * mGlobalScale;
+        style.FontSizeBase = fontSize;
+
+        ImFontConfig fontConfig;
+        fontConfig.SizePixels = fontSize;
+        //What AddFontDefault sets for itself when it is given no config.
+        fontConfig.PixelSnapH = true;
+        io.Fonts->AddFontDefault(&fontConfig);
+
         unsigned char* pixels;
         int width, height;
-
-        io.Fonts->AddFontDefault();
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+
+        //Replacing the fonts makes imgui re-apply the size the last frame was
+        //drawn at to the style, so the new size is put back afterwards. The
+        //next frame reads it from here to decide what to draw text at.
+        style.FontSizeBase = fontSize;
 
         Ogre::TextureGpuManager* textureManager = mSceneMgr->getDestinationRenderSystem()->getTextureGpuManager();
 
-        mFontTex = textureManager->createTexture("imgui/fontTex", Ogre::GpuPageOutStrategy::AlwaysKeepSystemRamCopy, 0, Ogre::TextureTypes::Type2D);
+        //A rebuild produces a new atlas, usually of a different size, so the
+        //texture holding the old one goes.
+        if (mFontTex) {
+            textureManager->destroyTexture(mFontTex);
+            mFontTex = 0;
+            //Ogre destroys a texture when it is done with it rather than when
+            //it is asked to, and keeps the name reserved until then, so each
+            //atlas is given a name of its own to be replaced under.
+            mFontTexIndex++;
+        }
+
+        Ogre::String fontTexName = "imgui/fontTex";
+        if (mFontTexIndex > 0) fontTexName += "/" + std::to_string(mFontTexIndex);
+
+        mFontTex = textureManager->createTexture(fontTexName, Ogre::GpuPageOutStrategy::AlwaysKeepSystemRamCopy, 0, Ogre::TextureTypes::Type2D);
         mFontTex->setPixelFormat(Ogre::PixelFormatGpu::PFG_RGBA8_UNORM);
         mFontTex->setResolution(width, height);
 
@@ -661,5 +732,40 @@ namespace AVImgui{
             // true to autoDeleteImage argument in scheduleTransitionTo
             mFontTex->scheduleTransitionTo(Ogre::GpuResidency::Resident, imagePtr, true);
         }
+
+        //The material is created from the first atlas, so on a rebuild its
+        //texture unit is the one thing left pointing at the old texture.
+        //Nothing is rendered through it - draw commands carry their own
+        //texture - but it is what the material says the pass uses.
+        if (mPass && mPass->getNumTextureUnitStates() > 0) {
+            mPass->getTextureUnitState(0)->setTexture(mFontTex);
+        }
+    }
+
+    void ImguiManager::setGlobalScale(float scale) {
+        if (scale <= 0.0f) return;
+        //Scripts call this from an update, which is to say from inside a
+        //frame, so it is remembered rather than applied where it is asked for.
+        mPendingScale = scale;
+    }
+
+    void ImguiManager::applyGlobalScale(float scale) {
+        mGlobalScale = scale;
+
+        //ScaleAllSizes multiplies the sizes already in the style, so scaling a
+        //style which has been scaled before compounds. Every scale is worked
+        //out from the sizes imgui started with instead.
+        ImGuiStyle& style = ImGui::GetStyle();
+        ImGuiStyle scaled = mBaseStyle;
+        scaled.ScaleAllSizes(scale);
+        //Colours are not sizes, so whatever is in use stays.
+        memcpy(scaled.Colors, style.Colors, sizeof(style.Colors));
+        style = scaled;
+
+        buildFontTexture();
+
+        //The previous frame's draw data refers to the texture just destroyed,
+        //so it cannot be presented again. @see render
+        mHaveDrawData = false;
     }
 }

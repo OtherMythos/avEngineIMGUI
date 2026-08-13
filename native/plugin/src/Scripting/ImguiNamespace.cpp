@@ -218,6 +218,21 @@ namespace AVImgui{
             if(manager) manager->setRenderingEnabled(enabled != SQFalse);
             return 0;
         }
+        SQInteger setGlobalScale(HSQUIRRELVM vm){
+            //Deliberately does not begin the frame. The scale is applied as the
+            //next frame begins, so beginning one here would mean the gui this
+            //update is about to build was the last one drawn at the old scale.
+            SQFloat scale;
+            sq_getfloat(vm, 2, &scale);
+            ImguiManager* manager = ImguiManager::getSingletonPtr();
+            if(manager) manager->setGlobalScale(scale);
+            return 0;
+        }
+        SQInteger getGlobalScale(HSQUIRRELVM vm){
+            ImguiManager* manager = ImguiManager::getSingletonPtr();
+            sq_pushfloat(vm, manager ? manager->getGlobalScale() : 1.0f);
+            return 1;
+        }
         SQInteger createOverlayWorkspace(HSQUIRRELVM vm){
             sq_pushbool(vm, AvImguiPlugin::createOverlayWorkspace());
             return 1;
@@ -1632,6 +1647,8 @@ namespace AVImgui{
         AV::ScriptUtils::addFunction(vm, wantTextInput, "wantTextInput", 1, ".");
         AV::ScriptUtils::addFunction(vm, isFirstUpdateOfFrame, "isFirstUpdateOfFrame", 1, ".");
         AV::ScriptUtils::addFunction(vm, setRenderingEnabled, "setRenderingEnabled", 2, ".b");
+        AV::ScriptUtils::addFunction(vm, setGlobalScale, "setGlobalScale", 2, ".n");
+        AV::ScriptUtils::addFunction(vm, getGlobalScale, "getGlobalScale", 1, ".");
         AV::ScriptUtils::addFunction(vm, createOverlayWorkspace, "createOverlayWorkspace", 1, ".");
         AV::ScriptUtils::addFunction(vm, destroyOverlayWorkspace, "destroyOverlayWorkspace", 1, ".");
         AV::ScriptUtils::addFunction(vm, setAutoOverlayEnabled, "setAutoOverlayEnabled", 2, ".b");

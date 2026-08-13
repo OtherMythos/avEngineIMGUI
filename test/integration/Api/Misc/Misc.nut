@@ -71,6 +71,55 @@ _t("setRenderingEnabled", "Accepts both booleans and leaves the api usable", fun
     _imgui.setRenderingEnabled(true);
 });
 
+//The sizes at a scale of 1, so the scaled ones can be compared against them.
+//Each test runs on its own frame, which is what a scale needs to take effect.
+::gUnscaledFrameHeight <- 0.0;
+::gUnscaledTextWidth <- 0.0;
+
+_t("setGlobalScale", "The scale is reported straight back but only applies from the next frame", function(){
+    _tNear(_imgui.getGlobalScale(), 1.0);
+
+    ::gUnscaledFrameHeight = _imgui.getFrameHeight();
+    ::gUnscaledTextWidth = _imgui.calcTextSize("scaled")[0];
+    _test.assertTrue(::gUnscaledFrameHeight > 0.0);
+    _test.assertTrue(::gUnscaledTextWidth > 0.0);
+
+    _imgui.setGlobalScale(2.0);
+    _tNear(_imgui.getGlobalScale(), 2.0);
+
+    //This frame was begun before the scale was asked for, so it is still the
+    //unscaled one being built.
+    _tNear(_imgui.getFrameHeight(), ::gUnscaledFrameHeight);
+});
+
+_t("globalScaleApplied", "A scaled gui draws bigger widgets and text", function(){
+    _imgui.begin("misc/scaled");
+    _imgui.text("scaled");
+    _imgui.end();
+
+    //Not exactly twice: style sizes are truncated to whole pixels as they are
+    //scaled, and the font is re-baked rather than stretched, so glyph advances
+    //are the scaled font's own rather than doubled ones.
+    _test.assertTrue(_imgui.getFrameHeight() > ::gUnscaledFrameHeight * 1.5);
+    _test.assertTrue(_imgui.calcTextSize("scaled")[0] > ::gUnscaledTextWidth * 1.5);
+});
+
+_t("setGlobalScaleInvalid", "A scale of zero or less is ignored", function(){
+    _imgui.setGlobalScale(0.0);
+    _tNear(_imgui.getGlobalScale(), 2.0);
+    _imgui.setGlobalScale(-1.0);
+    _tNear(_imgui.getGlobalScale(), 2.0);
+
+    //Put it back the way it was, for the tests which follow.
+    _imgui.setGlobalScale(1.0);
+});
+
+_t("globalScaleRestored", "Scaling back down returns the sizes it started with", function(){
+    _tNear(_imgui.getGlobalScale(), 1.0);
+    _tNear(_imgui.getFrameHeight(), ::gUnscaledFrameHeight);
+    _tNear(_imgui.calcTextSize("scaled")[0], ::gUnscaledTextWidth);
+});
+
 _t("autoOverlayEnabled", "The auto overlay flag round-trips", function(){
     _test.assertEqual("bool", typeof _imgui.getAutoOverlayEnabled());
 
