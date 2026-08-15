@@ -47,11 +47,15 @@ _t("imageUvs", "Uvs are optional and a sub-rect can be drawn", function(){
     _imgui.end();
 });
 
-_t("imageButton", "Image buttons return false when untouched and accept sprite uvs", function(){
+_t("imageButton", "Image buttons accept sprite uvs, background colour and tint", function(){
     _imgui.begin("images/imageButton");
 
     _test.assertFalse(_imgui.imageButton("full", imageTexture, 32, 32));
     _test.assertFalse(_imgui.imageButton("sprite", imageTexture, 32, 32, 0, 0, 0.5, 0.5));
+    _test.assertFalse(_imgui.imageButton("coloured", imageTexture, 32, 32,
+        0, 0, 1, 1,
+        ColourValue(0.2, 0.3, 0.4, 0.25),
+        ColourValue(1, 1, 1, 0.5)));
 
     _imgui.end();
 });
@@ -72,6 +76,14 @@ _t("imageErrors", "Bad arguments are errors rather than crashes", function(){
     //what has to reject it.
     ::_tThrows("the wrong kind of user data", function(){
         _imgui.image(_camera.getCamera(), 32, 32);
+    });
+    ::_tThrows("a non-ColourValue image button background", function(){
+        _imgui.imageButton("bad background", imageTexture, 32, 32,
+            0, 0, 1, 1, _camera.getCamera());
+    });
+    ::_tThrows("a non-ColourValue image button tint", function(){
+        _imgui.imageButton("bad tint", imageTexture, 32, 32,
+            0, 0, 1, 1, ColourValue(0, 0, 0, 0), _camera.getCamera());
     });
 
     _imgui.end();

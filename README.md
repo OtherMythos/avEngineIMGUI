@@ -315,7 +315,7 @@ Note that imgui gives an explicit position priority over a dock id: a window whi
 | Function | Notes |
 |---|---|
 | `image(texture, w, h, uv0x = 0, uv0y = 0, uv1x = 1, uv1y = 1)` | Draws an engine texture. |
-| `imageButton(id, texture, w, h, uv0x = 0, uv0y = 0, uv1x = 1, uv1y = 1)` → bool | Draws a clickable texture or sprite. |
+| `imageButton(id, texture, w, h, uv0x = 0, uv0y = 0, uv1x = 1, uv1y = 1, bgColour = ColourValue(0, 0, 0, 0), tint = ColourValue(1, 1, 1, 1))` → bool | Draws a clickable texture or sprite. Background and tint alpha values control their respective opacity. |
 
 `texture` is one of the engine's texture objects — `_graphics.createTexture`, `_graphics.createOrRetrieveTexture` or `_window.getRenderTexture()`. This is what puts a rendered scene inside a docked window: render it to a texture with a compositor workspace, then draw that texture in a window sized to `getContentRegionAvail`.
 

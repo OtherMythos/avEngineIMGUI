@@ -1,6 +1,7 @@
 #include "ImguiNamespace.h"
 
 #include "Scripting/ScriptNamespace/ScriptUtils.h"
+#include "Scripting/ScriptNamespace/Classes/ColourValueUserData.h"
 #include "Scripting/ScriptNamespace/Classes/Ogre/Graphics/TextureUserData.h"
 
 #include "OgreTextureGpu.h"
@@ -787,7 +788,27 @@ namespace AVImgui{
             const ImVec2 uv0((float)getFloatOr(vm, 6, 0.0f), (float)getFloatOr(vm, 7, 0.0f));
             const ImVec2 uv1((float)getFloatOr(vm, 8, 1.0f), (float)getFloatOr(vm, 9, 1.0f));
 
-            sq_pushbool(vm, ImGui::ImageButton(id, (ImTextureID)(uintptr_t)texture, size, uv0, uv1));
+            Ogre::ColourValue background(0, 0, 0, 0);
+            if(sq_gettop(vm) >= 10){
+                AV::UserDataGetResult result = AV::ColourValueUserData::readColourValueFromUserData(vm, 10, &background);
+                if(result != AV::USER_DATA_GET_SUCCESS){
+                    return sq_throwerror(vm, AV::ScriptUtils::checkResultErrorMessage(result));
+                }
+            }
+
+            Ogre::ColourValue tint = Ogre::ColourValue::White;
+            if(sq_gettop(vm) >= 11){
+                AV::UserDataGetResult result = AV::ColourValueUserData::readColourValueFromUserData(vm, 11, &tint);
+                if(result != AV::USER_DATA_GET_SUCCESS){
+                    return sq_throwerror(vm, AV::ScriptUtils::checkResultErrorMessage(result));
+                }
+            }
+
+            const ImVec4 backgroundColour((float)background.r, (float)background.g,
+                (float)background.b, (float)background.a);
+            const ImVec4 tintColour((float)tint.r, (float)tint.g, (float)tint.b, (float)tint.a);
+            sq_pushbool(vm, ImGui::ImageButton(id, (ImTextureID)(uintptr_t)texture,
+                size, uv0, uv1, backgroundColour, tintColour));
             return 1;
         }
 
@@ -1764,7 +1785,7 @@ namespace AVImgui{
 
         //Images
         AV::ScriptUtils::addFunction(vm, image, "image", -4, ".unnnnnn");
-        AV::ScriptUtils::addFunction(vm, imageButton, "imageButton", -5, ".sunnnnnn");
+        AV::ScriptUtils::addFunction(vm, imageButton, "imageButton", -5, ".sunnnnnnuu");
 
         //Value widgets
         AV::ScriptUtils::addFunction(vm, sliderFloat, "sliderFloat", -5, ".snnns|oi");
