@@ -219,6 +219,25 @@ namespace AVImgui{
             if(manager) manager->setRenderingEnabled(enabled != SQFalse);
             return 0;
         }
+        SQInteger setMouseInputEnabled(HSQUIRRELVM vm){
+            //Deliberately does not begin a frame. Callers commonly use this to
+            //gate input before submitting any windows, and NoMouse must be set
+            //before NewFrame() calculates hovered windows and click ownership.
+            SQBool enabled;
+            sq_getbool(vm, 2, &enabled);
+            ImGuiIO& io = ImGui::GetIO();
+            if(enabled != SQFalse){
+                io.ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
+            }else{
+                io.ConfigFlags |= ImGuiConfigFlags_NoMouse;
+            }
+            return 0;
+        }
+        SQInteger getMouseInputEnabled(HSQUIRRELVM vm){
+            sq_pushbool(vm,
+                (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_NoMouse) == 0);
+            return 1;
+        }
         SQInteger setGlobalScale(HSQUIRRELVM vm){
             //Deliberately does not begin the frame. The scale is applied as the
             //next frame begins, so beginning one here would mean the gui this
@@ -1713,6 +1732,8 @@ namespace AVImgui{
         AV::ScriptUtils::addFunction(vm, wantTextInput, "wantTextInput", 1, ".");
         AV::ScriptUtils::addFunction(vm, isFirstUpdateOfFrame, "isFirstUpdateOfFrame", 1, ".");
         AV::ScriptUtils::addFunction(vm, setRenderingEnabled, "setRenderingEnabled", 2, ".b");
+        AV::ScriptUtils::addFunction(vm, setMouseInputEnabled, "setMouseInputEnabled", 2, ".b");
+        AV::ScriptUtils::addFunction(vm, getMouseInputEnabled, "getMouseInputEnabled", 1, ".");
         AV::ScriptUtils::addFunction(vm, setGlobalScale, "setGlobalScale", 2, ".n");
         AV::ScriptUtils::addFunction(vm, getGlobalScale, "getGlobalScale", 1, ".");
         AV::ScriptUtils::addFunction(vm, createOverlayWorkspace, "createOverlayWorkspace", 1, ".");

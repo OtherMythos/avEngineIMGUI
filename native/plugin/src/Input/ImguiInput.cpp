@@ -54,9 +54,19 @@ namespace AVImgui{
     void ImguiInput::initialise(){
         sHasLast = false;
         for(int i = 0; i < SCANCODE_COUNT; i++) sLastKeys[i] = false;
+
+        AV::InputManager* input = AV::BaseSingleton::getInputManager().get();
+        if(input) input->addMouseButtonListener(&ImguiInput::mouseButtonEvent, 0);
     }
 
     void ImguiInput::shutdown(){
+        AV::InputManager* input = AV::BaseSingleton::getInputManager().get();
+        if(input) input->removeMouseButtonListener(&ImguiInput::mouseButtonEvent, 0);
+    }
+
+    void ImguiInput::mouseButtonEvent(int mouseButton, bool pressed, void*){
+        if(ImGui::GetCurrentContext() == 0) return;
+        ImGui::GetIO().AddMouseButtonEvent(mouseButton, pressed);
     }
 
     void ImguiInput::update(){

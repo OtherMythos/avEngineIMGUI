@@ -142,7 +142,7 @@ compositor_node myNode{
 
 ## Input
 
-The plugin reads input from the engine's `InputManager` each frame (mouse position, buttons, wheel, and keyboard). It deliberately does **not** call SDL: the engine links SDL statically and does not re-export it, so a plugin that called SDL directly would fail to load (this is why input is polled rather than taken from an SDL event watch). Because it goes through `InputManager`, input driven programmatically — e.g. via the engine's debug server — reaches imgui too.
+The plugin reads input from the engine's `InputManager`: mouse button transitions arrive through an ordered listener, while mouse position, wheel, and keyboard state are polled each frame. It deliberately does **not** call SDL because the engine links SDL statically and does not re-export it. Keeping the transition listener inside `InputManager` also means a complete click between two rendered frames is preserved, and programmatic input — e.g. via the engine's debug server — reaches imgui too.
 
 - Input is *observed*, not consumed: clicks over an imgui window still reach the engine's own input system. Game code which should ignore input while the gui is using it can check:
 
@@ -468,6 +468,7 @@ if(_imgui.beginTable("entities", 2, _imgui.TableFlags_Borders | _imgui.TableFlag
 | `isFirstUpdateOfFrame()` → bool | See the frame model section. |
 | `wantCaptureMouse()` / `wantCaptureKeyboard()` / `wantTextInput()` → bool | |
 | `setRenderingEnabled(bool)` | Quickly hide/show the gui without changing script logic. |
+| `setMouseInputEnabled(bool)` / `getMouseInputEnabled()` → bool | Globally disable mouse hovering and interaction without hiding the gui. Set it before the first `_imgui` call of the frame. |
 | `setGlobalScale(float)` / `getGlobalScale()` → float | Scale the whole gui. See [High dpi displays](#high-dpi-displays). |
 | `createOverlayWorkspace()` → bool | Usually automatic. True if it was created, false if it already existed. |
 | `destroyOverlayWorkspace()` → bool | Also disables automatic re-creation. |

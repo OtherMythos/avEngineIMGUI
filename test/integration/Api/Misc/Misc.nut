@@ -71,6 +71,15 @@ _t("setRenderingEnabled", "Accepts both booleans and leaves the api usable", fun
     _imgui.setRenderingEnabled(true);
 });
 
+_t("mouseInputEnabled", "Globally disables and restores imgui mouse interaction", function(){
+    _test.assertTrue(_imgui.getMouseInputEnabled());
+    _imgui.setMouseInputEnabled(false);
+    _test.assertFalse(_imgui.getMouseInputEnabled());
+    //Restore the process-wide flag for every test which follows.
+    _imgui.setMouseInputEnabled(true);
+    _test.assertTrue(_imgui.getMouseInputEnabled());
+});
+
 //The sizes at a scale of 1, so the scaled ones can be compared against them.
 //Each test runs on its own frame, which is what a scale needs to take effect.
 ::gUnscaledFrameHeight <- 0.0;
