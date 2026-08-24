@@ -40,6 +40,29 @@ namespace AVImgui{
         */
         void ensureFrameStarted();
 
+        /**
+        Whether a frame has been begun recently enough for imgui's capture flags
+        to describe anything real.
+
+        WantCaptureMouse is only meaningful while imgui is actually drawing. If
+        the project stops calling into imgui, a stale value would otherwise latch
+        on and swallow input forever, so the input layer asks this first.
+        */
+        bool isFrameLive() const { return mFrameLive; }
+        /**
+        Re-evaluate liveness. Called once per rendered frame, before the engine
+        dispatches that frame's input.
+
+        Measured in elapsed time rather than frames, because the two cadences
+        involved are unrelated: frames render as fast as the display (or with no
+        limit at all headless) while imgui frames are begun from the project's
+        script, which runs on the fixed timestep. At 2000fps against a 60Hz fixed
+        update there are more than thirty rendered frames between imgui frames,
+        all of them perfectly healthy, so a frame count cannot tell a fast
+        renderer apart from a project that has stopped drawing.
+        */
+        void notifyFrameUpdate();
+
         //True if a frame has been started and not yet rendered.
         bool isFrameActive() const { return mFrameActive; }
 
@@ -107,6 +130,11 @@ namespace AVImgui{
 
         bool mFrameActive;
         unsigned long mFrameStartedOgreFrame;
+        //When a frame was last begun, and whether that was recent enough for
+        //the capture flags to still describe something. @see isFrameLive
+        std::chrono::steady_clock::time_point mLastFrameBegunTime;
+        bool mHasFrameBegunTime;
+        bool mFrameLive;
         bool mRenderingEnabled;
         bool mVulkan;
 

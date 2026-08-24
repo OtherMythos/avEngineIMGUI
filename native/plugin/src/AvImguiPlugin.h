@@ -17,6 +17,7 @@ namespace AVImgui{
 
         virtual void initialise() override;
         virtual void shutdown() override;
+        virtual void frameUpdate() override;
 
         /**
         Create the ready-made overlay workspace which renders imgui over the

@@ -46,6 +46,8 @@ namespace AVImgui{
                                    mFontTex(0),
                                    mSamplerblock(0),
                                    mFrameActive(false),
+                                   mHasFrameBegunTime(false),
+                                   mFrameLive(false),
                                    mFrameStartedOgreFrame(0),
                                    mRenderingEnabled(true),
                                    mVulkan(false),
@@ -96,6 +98,23 @@ namespace AVImgui{
 
         createFontTexture();
         createMaterial();
+    }
+
+    void ImguiManager::notifyFrameUpdate() {
+        if(!mHasFrameBegunTime){
+            mFrameLive = false;
+            return;
+        }
+
+        //Generous enough to span several fixed updates, so an ordinary frame is
+        //never mistaken for a project which has stopped drawing, and short
+        //enough that capture from a project which really has stopped expires
+        //before anyone notices their clicks going nowhere.
+        static const float STALE_AFTER_SECONDS = 0.25f;
+
+        const float elapsed = std::chrono::duration<float>(
+            std::chrono::steady_clock::now() - mLastFrameBegunTime).count();
+        mFrameLive = elapsed < STALE_AFTER_SECONDS;
     }
 
     bool ImguiManager::wouldBeFirstUpdateOfFrame() const {
@@ -163,6 +182,10 @@ namespace AVImgui{
         ImGui::NewFrame();
 
         mFrameActive = true;
+        //A frame just began, so the capture flags describe something real again.
+        mLastFrameBegunTime = std::chrono::steady_clock::now();
+        mHasFrameBegunTime = true;
+        mFrameLive = true;
         mFrameStartedOgreFrame = ogreFrame;
     }
 

@@ -142,18 +142,37 @@ compositor_node myNode{
 
 ## Input
 
-The plugin reads input from the engine's `InputManager`: mouse button transitions arrive through an ordered listener, while mouse position, wheel, and keyboard state are polled each frame. It deliberately does **not** call SDL because the engine links SDL statically and does not re-export it. Keeping the transition listener inside `InputManager` also means a complete click between two rendered frames is preserved, and programmatic input — e.g. via the engine's debug server — reaches imgui too.
+The plugin registers an **input layer** with the engine's `InputRouter` at the overlay priority, so every event is offered to imgui before the engine's gui system or the game sees it. It deliberately does **not** call SDL, because the engine links SDL statically and does not re-export it. Programmatic input — e.g. via the engine's debug server — goes through the same router, so it reaches imgui too.
 
-- Input is *observed*, not consumed: clicks over an imgui window still reach the engine's own input system. Game code which should ignore input while the gui is using it can check:
+- Input is **consumed**, not merely observed. When imgui reports that it wants the mouse or the keyboard, the event stops there and nothing below is told about it at all. A click on an imgui window no longer also drives the game underneath, so game code needs no guard of its own:
 
 ```squirrel
-if(_imgui.wantCaptureMouse()){
-    //imgui is using the mouse, skip game mouse handling.
-}
+//No longer necessary - a click imgui took never reaches here.
+local pressed = _input.getMouseButton(_MB_LEFT);
 ```
 
-- `wantCaptureKeyboard()` and `wantTextInput()` are the keyboard equivalents.
-- **Text fields** work for typed ASCII on a US keyboard layout. Character input is reconstructed from key state (the engine exposes no text-input channel to plugins), so it does not follow other layouts or an OS input method. Navigation and editing keys (arrows, home/end, backspace, delete, enter) work regardless of layout.
+  `wantCaptureMouse()`, `wantCaptureKeyboard()` and `wantTextInput()` still exist, and remain useful for cases the layer cannot decide for you — for instance a 3D scene drawn *inside* an imgui window, where the mouse is over imgui but your own code still wants it.
+
+- **Mouse position is never consumed**, only buttons, wheel and keys. Position is state rather than an event: swallowing it would freeze `_input.getMouseX()` and the gui cursor for everything below, which is far more disruptive than the input bleed the layer exists to prevent.
+
+- **A press is owned until it is released.** Whichever layer consumes a press keeps that button for the whole gesture, so dragging an imgui window across a gui widget cannot hand the drag away part way through, and the release can never be delivered to something which never saw the press.
+
+- **Capture expires if imgui stops drawing.** `WantCaptureMouse` only means anything while imgui is actually running, so the layer reports itself inactive if no frame has been begun for a quarter of a second. If a project stops calling `_imgui`, input falls back through to the game rather than being swallowed forever. The same is true before the first `_imgui` call of a run.
+
+- `setMouseInputEnabled(false)` (`ImGuiConfigFlags_NoMouse`) also stops the layer consuming the mouse, not just imgui reacting to it.
+
+- **Text fields** now receive real text from the OS, so they follow the user's keyboard layout and input method. The engine enables text input whenever any layer asks for it, and the typed characters are handed to imgui directly rather than reconstructed from key state.
+
+### Inspecting the layer stack
+
+`GET /api/input/layers` on the engine's debug server reports every layer in priority order, whether it is live, and what it currently owns — which is the quickest way to see who swallowed a click:
+
+```json
+{"layers":[{"name":"imgui","priority":200,"live":true,"ownedButtons":1, ...}],
+ "pluginInputEnabled":true}
+```
+
+From script, `_input.getInputLayers()` returns the same thing, and `_input.setPluginInputEnabled(false)` disables plugin consumption wholesale if you need to rule it out.
 
 ---
 

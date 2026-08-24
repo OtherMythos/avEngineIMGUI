@@ -5,130 +5,176 @@
 #include <SDL_scancode.h>
 
 #include "System/BaseSingleton.h"
-#include "Input/InputManager.h"
+#include "Input/InputRouter.h"
 #include "Window/Window.h"
+
+#include "ImguiOgre/ImguiManager.h"
+
+#include <cstring>
 
 namespace AVImgui{
 
     namespace {
-        const int SCANCODE_COUNT = SDL_NUM_SCANCODES;
-        //Previous frame's key state, for edge detection.
-        static bool sLastKeys[SDL_NUM_SCANCODES] = { false };
-        static bool sHasLast = false;
+        AV::InputLayerHandle sLayerHandle = AV::INVALID_INPUT_LAYER;
 
-        inline bool keyDown(AV::InputManager* input, int scancode){
-            return input->getKeyboardInput(scancode);
+        //The modifier mask the engine forwards is SDL's, whose values are fixed
+        //by its ABI. Spelled out here rather than including SDL_keycode.h, to
+        //keep this file's SDL surface to the scancode table alone.
+        const int KEYMOD_SHIFT = 0x0003;
+        const int KEYMOD_CTRL  = 0x00C0;
+        const int KEYMOD_ALT   = 0x0300;
+        const int KEYMOD_GUI   = 0x0C00;
+
+        //imgui's display space is the render target in device pixels, while the
+        //router reports the pointer in window (logical) points.
+        inline void displayScale(float* outX, float* outY){
+            *outX = 1.0f;
+            *outY = 1.0f;
+
+            ImGuiIO& io = ImGui::GetIO();
+            AV::Window* window = AV::BaseSingleton::getWindow();
+            if(!window || window->getWidth() <= 0 || window->getHeight() <= 0) return;
+
+            *outX = io.DisplaySize.x / (float)window->getWidth();
+            *outY = io.DisplaySize.y / (float)window->getHeight();
         }
 
-        //US-layout ASCII for a printable scancode, or 0. shifted picks the
-        //upper symbol. This is a best-effort for text fields; it does not follow
-        //other keyboard layouts.
-        char printableChar(int scancode, bool shift){
-            if(scancode >= SDL_SCANCODE_A && scancode <= SDL_SCANCODE_Z){
-                char base = 'a' + (scancode - SDL_SCANCODE_A);
-                return shift ? (char)(base - 32) : base;
-            }
-            if(scancode >= SDL_SCANCODE_1 && scancode <= SDL_SCANCODE_9){
-                static const char* shifted = "!@#$%^&*(";
-                return shift ? shifted[scancode - SDL_SCANCODE_1] : (char)('1' + (scancode - SDL_SCANCODE_1));
-            }
-            switch(scancode){
-                case SDL_SCANCODE_0: return shift ? ')' : '0';
-                case SDL_SCANCODE_SPACE: return ' ';
-                case SDL_SCANCODE_MINUS: return shift ? '_' : '-';
-                case SDL_SCANCODE_EQUALS: return shift ? '+' : '=';
-                case SDL_SCANCODE_LEFTBRACKET: return shift ? '{' : '[';
-                case SDL_SCANCODE_RIGHTBRACKET: return shift ? '}' : ']';
-                case SDL_SCANCODE_BACKSLASH: return shift ? '|' : '\\';
-                case SDL_SCANCODE_SEMICOLON: return shift ? ':' : ';';
-                case SDL_SCANCODE_APOSTROPHE: return shift ? '"' : '\'';
-                case SDL_SCANCODE_GRAVE: return shift ? '~' : '`';
-                case SDL_SCANCODE_COMMA: return shift ? '<' : ',';
-                case SDL_SCANCODE_PERIOD: return shift ? '>' : '.';
-                case SDL_SCANCODE_SLASH: return shift ? '?' : '/';
-                default: return 0;
-            }
+        inline bool contextReady(){
+            return ImGui::GetCurrentContext() != 0;
+        }
+
+        //Whether imgui currently wants the pointer. The NoMouse config flag is
+        //honoured here so setMouseInputEnabled(false) also stops imgui
+        //swallowing anything, rather than only stopping it reacting.
+        inline bool imguiWantsMouse(){
+            if(!contextReady()) return false;
+            ImGuiIO& io = ImGui::GetIO();
+            if(io.ConfigFlags & ImGuiConfigFlags_NoMouse) return false;
+            return io.WantCaptureMouse;
         }
     }
 
     void ImguiInput::initialise(){
-        sHasLast = false;
-        for(int i = 0; i < SCANCODE_COUNT; i++) sLastKeys[i] = false;
+        std::shared_ptr<AV::InputRouter> router = AV::BaseSingleton::getInputRouter();
+        if(!router) return;
 
-        AV::InputManager* input = AV::BaseSingleton::getInputManager().get();
-        if(input) input->addMouseButtonListener(&ImguiInput::mouseButtonEvent, 0);
+        AV::InputLayerCallbacks cb;
+        memset(&cb, 0, sizeof(AV::InputLayerCallbacks));
+        cb.isLive = &ImguiInput::isLive;
+        cb.wantsPointer = &ImguiInput::wantsPointer;
+        cb.wantsKeyboard = &ImguiInput::wantsKeyboard;
+        cb.wantsTextInput = &ImguiInput::wantsTextInput;
+        cb.onMouseMove = &ImguiInput::onMouseMove;
+        cb.onMouseButton = &ImguiInput::onMouseButton;
+        cb.onMouseWheel = &ImguiInput::onMouseWheel;
+        cb.onKey = &ImguiInput::onKey;
+        cb.onTextInput = &ImguiInput::onTextInput;
+        cb.onInputCancelled = &ImguiInput::onInputCancelled;
+
+        sLayerHandle = router->addLayer("imgui", AV::INPUT_PRIORITY_OVERLAY, cb, 0);
     }
 
     void ImguiInput::shutdown(){
-        AV::InputManager* input = AV::BaseSingleton::getInputManager().get();
-        if(input) input->removeMouseButtonListener(&ImguiInput::mouseButtonEvent, 0);
+        std::shared_ptr<AV::InputRouter> router = AV::BaseSingleton::getInputRouter();
+        if(router && sLayerHandle != AV::INVALID_INPUT_LAYER){
+            router->removeLayer(sLayerHandle);
+        }
+        sLayerHandle = AV::INVALID_INPUT_LAYER;
     }
 
-    void ImguiInput::mouseButtonEvent(int mouseButton, bool pressed, void*){
-        if(ImGui::GetCurrentContext() == 0) return;
-        ImGui::GetIO().AddMouseButtonEvent(mouseButton, pressed);
+    bool ImguiInput::isLive(void*){
+        if(!contextReady()) return false;
+
+        //Between the plugin loading and the project's first imgui call there is
+        //a context but nothing drawing, and the same is true again if a project
+        //stops using imgui. Either way the capture flags describe nothing, so
+        //the layer stays transparent.
+        ImguiManager* manager = ImguiManager::getSingletonPtr();
+        return manager && manager->isFrameLive();
     }
 
-    void ImguiInput::update(){
-        if(ImGui::GetCurrentContext() == 0) return;
-        AV::InputManager* input = AV::BaseSingleton::getInputManager().get();
-        if(!input) return;
+    bool ImguiInput::wantsPointer(void*){
+        return imguiWantsMouse();
+    }
+
+    bool ImguiInput::wantsKeyboard(void*){
+        if(!contextReady()) return false;
+        return ImGui::GetIO().WantCaptureKeyboard;
+    }
+
+    bool ImguiInput::wantsTextInput(void*){
+        if(!contextReady()) return false;
+        //Asking for this is what makes the engine enable the OS text input
+        //events, which is how imgui text fields get correctly laid out
+        //characters rather than a guess reconstructed from scancodes.
+        return ImGui::GetIO().WantTextInput;
+    }
+
+    void ImguiInput::onMouseMove(float x, float y, float, float, bool, void*){
+        if(!contextReady()) return;
+
+        //Fed regardless of whether imgui owns the pointer. imgui works out what
+        //is hovered during the next NewFrame, so withholding the position while
+        //it isn't capturing would mean it never discovers the cursor is over one
+        //of its windows, and it would never start capturing at all.
+        float scaleX, scaleY;
+        displayScale(&scaleX, &scaleY);
+        ImGui::GetIO().AddMousePosEvent(x * scaleX, y * scaleY);
+    }
+
+    bool ImguiInput::onMouseButton(int button, bool pressed, void*){
+        if(!contextReady()) return false;
+
+        ImGui::GetIO().AddMouseButtonEvent(button, pressed);
+        return imguiWantsMouse();
+    }
+
+    bool ImguiInput::onMouseWheel(float x, float y, void*){
+        if(!contextReady()) return false;
+
+        ImGui::GetIO().AddMouseWheelEvent(x, y);
+        return imguiWantsMouse();
+    }
+
+    bool ImguiInput::onKey(int scancode, int, int keyMod, bool pressed, void*){
+        if(!contextReady()) return false;
 
         ImGuiIO& io = ImGui::GetIO();
 
-        //Mouse. imgui's display space is the render target in device pixels,
-        //while InputManager reports the pointer in window (logical) points, so
-        //scale by display/window. This deliberately does not use
-        //getActualMouseX(): that is only populated by real SDL motion, whereas
-        //the logical position is also what the debug server injects, so this
-        //path works when input is driven programmatically too.
-        AV::Window* window = AV::BaseSingleton::getWindow();
-        float scaleX = 1.0f, scaleY = 1.0f;
-        if(window && window->getWidth() > 0 && window->getHeight() > 0){
-            scaleX = io.DisplaySize.x / (float)window->getWidth();
-            scaleY = io.DisplaySize.y / (float)window->getHeight();
-        }
-        io.AddMousePosEvent((float)input->getMouseX() * scaleX, (float)input->getMouseY() * scaleY);
-        io.AddMouseButtonEvent(0, input->getMouseButton(0));
-        io.AddMouseButtonEvent(1, input->getMouseButton(1));
-        io.AddMouseButtonEvent(2, input->getMouseButton(2));
+        //Modifier state travels with the event rather than being polled, so it
+        //stays correct even for keys the engine never sees held.
+        io.AddKeyEvent(ImGuiMod_Shift, (keyMod & KEYMOD_SHIFT) != 0);
+        io.AddKeyEvent(ImGuiMod_Ctrl, (keyMod & KEYMOD_CTRL) != 0);
+        io.AddKeyEvent(ImGuiMod_Alt, (keyMod & KEYMOD_ALT) != 0);
+        io.AddKeyEvent(ImGuiMod_Super, (keyMod & KEYMOD_GUI) != 0);
 
-        int wheel = input->getMouseWheel();
-        if(wheel != 0){
-            io.AddMouseWheelEvent(0.0f, (float)wheel);
+        ImGuiKey key = scancodeToImGuiKey(scancode);
+        if(key != ImGuiKey_None){
+            io.AddKeyEvent(key, pressed);
         }
 
-        //Modifiers.
-        bool shift = keyDown(input, SDL_SCANCODE_LSHIFT) || keyDown(input, SDL_SCANCODE_RSHIFT);
-        bool ctrl  = keyDown(input, SDL_SCANCODE_LCTRL)  || keyDown(input, SDL_SCANCODE_RCTRL);
-        bool alt   = keyDown(input, SDL_SCANCODE_LALT)   || keyDown(input, SDL_SCANCODE_RALT);
-        bool super = keyDown(input, SDL_SCANCODE_LGUI)   || keyDown(input, SDL_SCANCODE_RGUI);
-        io.AddKeyEvent(ImGuiMod_Shift, shift);
-        io.AddKeyEvent(ImGuiMod_Ctrl, ctrl);
-        io.AddKeyEvent(ImGuiMod_Alt, alt);
-        io.AddKeyEvent(ImGuiMod_Super, super);
+        return io.WantCaptureKeyboard;
+    }
 
-        //Keys: diff against the previous frame so each change becomes an event.
-        for(int sc = 0; sc < SCANCODE_COUNT; sc++){
-            bool down = input->getKeyboardInput(sc);
-            bool was = sHasLast ? sLastKeys[sc] : false;
-            if(down == was) continue;
+    bool ImguiInput::onTextInput(const char* text, void*){
+        if(!contextReady()) return false;
 
-            ImGuiKey key = scancodeToImGuiKey(sc);
-            if(key != ImGuiKey_None){
-                io.AddKeyEvent(key, down);
-            }
+        ImGuiIO& io = ImGui::GetIO();
+        if(!io.WantTextInput) return false;
 
-            //On a fresh press of a printable key, feed the character too, so
-            //text fields accept typing (US layout, ASCII only).
-            if(down && io.WantTextInput){
-                char c = printableChar(sc, shift);
-                if(c != 0) io.AddInputCharacter((unsigned int)c);
-            }
+        //Real text from the OS, so this follows the user's keyboard layout and
+        //input method rather than assuming a US layout.
+        io.AddInputCharactersUTF8(text);
+        return true;
+    }
 
-            sLastKeys[sc] = down;
-        }
-        sHasLast = true;
+    void ImguiInput::onInputCancelled(void*){
+        if(!contextReady()) return;
+
+        //Everything held has been revoked, so drop imgui's idea of what is down
+        //rather than leaving a key or button stuck.
+        ImGui::GetIO().ClearInputKeys();
+        ImGui::GetIO().ClearInputMouse();
     }
 
     //Physical-key map, adapted from the scancode fallback in imgui_impl_sdl2.

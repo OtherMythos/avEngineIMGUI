@@ -122,9 +122,15 @@ namespace AVImgui{
         if(mAutoOverlayEnabled && !mOverlayWorkspace){
             createOverlayWorkspace();
         }
+    }
 
-        //Poll engine input into imgui before the frame is begun.
-        ImguiInput::update();
+    void AvImguiPlugin::frameUpdate(){
+        //Ages imgui's liveness counter once per rendered frame. This runs before
+        //the engine dispatches the frame's input, so if the project has stopped
+        //drawing imgui its capture flags go stale here and the input layer
+        //becomes transparent, rather than latching on and swallowing everything.
+        ImguiManager* manager = ImguiManager::getSingletonPtr();
+        if(manager) manager->notifyFrameUpdate();
     }
 
     bool AvImguiPlugin::createOverlayWorkspace(){
