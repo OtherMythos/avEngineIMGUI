@@ -1646,6 +1646,80 @@ namespace AVImgui{
         }
 
         //---------------------------------------------------------------------
+        //Mouse state
+        //---------------------------------------------------------------------
+        //imgui's own view of the mouse, which is the right source for anything
+        //drawn inside an imgui window. It is consistent with the item and window
+        //queries above, being sampled on the same frame those are evaluated on,
+        //whereas the engine's input manager is polled on the fixed update step
+        //and so can disagree with them within a single rendered frame.
+        //
+        //Positions are in imgui's display space (the render target in device
+        //pixels), matching getCursorScreenPos and the window/item rectangles,
+        //rather than the engine's logical window points.
+        SQInteger isMouseDown(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            sq_pushbool(vm, ImGui::IsMouseDown((ImGuiMouseButton)getIntOr(vm, 2, ImGuiMouseButton_Left)));
+            return 1;
+        }
+        SQInteger isMouseClicked(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            const ImGuiMouseButton button = (ImGuiMouseButton)getIntOr(vm, 2, ImGuiMouseButton_Left);
+            sq_pushbool(vm, ImGui::IsMouseClicked(button, getBoolOr(vm, 3, false)));
+            return 1;
+        }
+        SQInteger isMouseReleased(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            sq_pushbool(vm, ImGui::IsMouseReleased((ImGuiMouseButton)getIntOr(vm, 2, ImGuiMouseButton_Left)));
+            return 1;
+        }
+        SQInteger isMouseDoubleClicked(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            sq_pushbool(vm, ImGui::IsMouseDoubleClicked((ImGuiMouseButton)getIntOr(vm, 2, ImGuiMouseButton_Left)));
+            return 1;
+        }
+        SQInteger isAnyMouseDown(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            sq_pushbool(vm, ImGui::IsAnyMouseDown());
+            return 1;
+        }
+        SQInteger isMouseDragging(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            const ImGuiMouseButton button = (ImGuiMouseButton)getIntOr(vm, 2, ImGuiMouseButton_Left);
+            //-1 means imgui's own configured drag threshold.
+            sq_pushbool(vm, ImGui::IsMouseDragging(button, (float)getFloatOr(vm, 3, -1.0f)));
+            return 1;
+        }
+        SQInteger getMouseDragDelta(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            const ImGuiMouseButton button = (ImGuiMouseButton)getIntOr(vm, 2, ImGuiMouseButton_Left);
+            const ImVec2 v = ImGui::GetMouseDragDelta(button, (float)getFloatOr(vm, 3, -1.0f));
+            return pushVec2(vm, v.x, v.y);
+        }
+        SQInteger resetMouseDragDelta(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            ImGui::ResetMouseDragDelta((ImGuiMouseButton)getIntOr(vm, 2, ImGuiMouseButton_Left));
+            return 0;
+        }
+        SQInteger getMousePos(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            const ImVec2 v = ImGui::GetMousePos();
+            return pushVec2(vm, v.x, v.y);
+        }
+        SQInteger getMousePosOnOpeningCurrentPopup(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            const ImVec2 v = ImGui::GetMousePosOnOpeningCurrentPopup();
+            return pushVec2(vm, v.x, v.y);
+        }
+        SQInteger getMouseWheel(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            //Vertical then horizontal, as one call so a zoom gesture reads both
+            //without paying for the frame guard twice.
+            const ImGuiIO& io = ImGui::GetIO();
+            return pushVec2(vm, io.MouseWheel, io.MouseWheelH);
+        }
+
+        //---------------------------------------------------------------------
         //ID stack, style
         //---------------------------------------------------------------------
         SQInteger pushId(HSQUIRRELVM vm){
@@ -1915,6 +1989,19 @@ namespace AVImgui{
         AV::ScriptUtils::addFunction(vm, isAnyItemHovered, "isAnyItemHovered", 1, ".");
         AV::ScriptUtils::addFunction(vm, setItemDefaultFocus, "setItemDefaultFocus", 1, ".");
         AV::ScriptUtils::addFunction(vm, setKeyboardFocusHere, "setKeyboardFocusHere", -1, ".i");
+
+        //Mouse state
+        AV::ScriptUtils::addFunction(vm, isMouseDown, "isMouseDown", -1, ".i");
+        AV::ScriptUtils::addFunction(vm, isMouseClicked, "isMouseClicked", -1, ".ib");
+        AV::ScriptUtils::addFunction(vm, isMouseReleased, "isMouseReleased", -1, ".i");
+        AV::ScriptUtils::addFunction(vm, isMouseDoubleClicked, "isMouseDoubleClicked", -1, ".i");
+        AV::ScriptUtils::addFunction(vm, isAnyMouseDown, "isAnyMouseDown", 1, ".");
+        AV::ScriptUtils::addFunction(vm, isMouseDragging, "isMouseDragging", -1, ".in");
+        AV::ScriptUtils::addFunction(vm, getMouseDragDelta, "getMouseDragDelta", -1, ".in");
+        AV::ScriptUtils::addFunction(vm, resetMouseDragDelta, "resetMouseDragDelta", -1, ".i");
+        AV::ScriptUtils::addFunction(vm, getMousePos, "getMousePos", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getMousePosOnOpeningCurrentPopup, "getMousePosOnOpeningCurrentPopup", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getMouseWheel, "getMouseWheel", 1, ".");
 
         //ID, style
         AV::ScriptUtils::addFunction(vm, pushId, "pushId", 2, ".s|i");

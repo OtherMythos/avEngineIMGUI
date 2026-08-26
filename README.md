@@ -153,6 +153,8 @@ local pressed = _input.getMouseButton(_MB_LEFT);
 
   `wantCaptureMouse()`, `wantCaptureKeyboard()` and `wantTextInput()` still exist, and remain useful for cases the layer cannot decide for you — for instance a 3D scene drawn *inside* an imgui window, where the mouse is over imgui but your own code still wants it.
 
+- **Reading the mouse inside an imgui window: use `_imgui`, not `_input`.** When imgui takes a click the engine's input layer swallows it, so `_input.getMouseButton()` goes false by design. That is correct for gameplay, but wrong for a tool whose own viewport lives inside an imgui window — for that, read `_imgui.isMouseDown()` and friends, which report what imgui itself received. See [Mouse state](#mouse-state).
+
 - **Mouse position is never consumed**, only buttons, wheel and keys. Position is state rather than an event: swallowing it would freeze `_input.getMouseX()` and the gui cursor for everything below, which is far more disruptive than the input bleed the layer exists to prevent.
 
 - **A press is owned until it is released.** Whichever layer consumes a press keeps that button for the whole gesture, so dragging an imgui window across a gui widget cannot hand the drag away part way through, and the release can never be delivered to something which never saw the press.
@@ -463,6 +465,31 @@ if(_imgui.beginTable("entities", 2, _imgui.TableFlags_Borders | _imgui.TableFlag
 ### Item queries
 
 `isItemHovered(flags = 0)`, `isItemActive()`, `isItemClicked(button = 0)`, `isItemEdited()`, `isItemActivated()`, `isItemDeactivated()`, `isItemDeactivatedAfterEdit()`, `isAnyItemActive()`, `isAnyItemHovered()`, `setItemDefaultFocus()`, `setKeyboardFocusHere(offset = 0)`
+
+### Mouse state
+
+`isMouseDown(button = 0)`, `isMouseClicked(button = 0, repeat = false)`, `isMouseReleased(button = 0)`, `isMouseDoubleClicked(button = 0)`, `isAnyMouseDown()`, `isMouseDragging(button = 0, threshold = -1)`, `getMouseDragDelta(button = 0, threshold = -1)` → `[x, y]`, `resetMouseDragDelta(button = 0)`, `getMousePos()` → `[x, y]`, `getMousePosOnOpeningCurrentPopup()` → `[x, y]`, `getMouseWheel()` → `[vertical, horizontal]`
+
+Buttons are `MouseButton_Left` / `_Right` / `_Middle`. A `threshold` of `-1` means imgui's own configured drag threshold.
+
+**This is the right mouse source for anything drawn inside an imgui window** — a tool's viewport, a panel, a custom-drawn widget. Two reasons:
+
+- It agrees with `isWindowHovered`, `isItemActive` and the window rectangles, because it is sampled on the frame those are evaluated on. `_input` is polled on the engine's fixed update step, which can run several times per rendered frame or not at all, so the two can disagree within one frame.
+- It is unaffected by input arbitration. When imgui captures the mouse the engine's input layer swallows the event, so `_input.getMouseButton()` correctly goes false — but `_imgui.isMouseDown()` still reports it, because imgui is the layer that took it.
+
+Positions are in imgui's **display space** (the render target in device pixels), matching `getCursorScreenPos` and the window rectangles — not the engine's logical window points, so no scaling conversion is needed:
+
+```squirrel
+//Inside an imgui window - read the mouse from imgui.
+if(_imgui.isWindowHovered() && _imgui.isMouseClicked(_imgui.MouseButton_Left)){
+    local pos = _imgui.getMousePos();
+    //...
+}
+
+//Gameplay outside any gui - read it from the engine, which filters out
+//anything the gui already took.
+if(_input.getMousePressed(_MB_LEFT)){ }
+```
 
 ### ID stack and style
 
