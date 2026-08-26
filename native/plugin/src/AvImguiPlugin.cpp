@@ -169,9 +169,11 @@ namespace AVImgui{
         return true;
     }
 
-    void AvImguiPlugin::shutdown(){
+    void AvImguiPlugin::earlyShutdown(){
         ImguiInput::shutdown();
+    }
 
+    void AvImguiPlugin::shutdown(){
         destroyOverlayWorkspace();
 
         Ogre::Root* root = Ogre::Root::getSingletonPtr();
