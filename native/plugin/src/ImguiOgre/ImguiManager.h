@@ -135,6 +135,7 @@ namespace AVImgui{
         std::chrono::steady_clock::time_point mLastFrameBegunTime;
         bool mHasFrameBegunTime;
         bool mFrameLive;
+        static const float STALE_AFTER_SECONDS;
         bool mRenderingEnabled;
         bool mVulkan;
 
@@ -143,7 +144,7 @@ namespace AVImgui{
         //update; the previous frame's gui is re-presented for those so the gui
         //does not flicker when the framerate exceeds the fixed update rate.
         bool mHaveDrawData;
-        unsigned long mLastFreshDataFrame;
+        std::chrono::steady_clock::time_point mLastFreshDataTime;
 
         float mPrevWidth, mPrevHeight;
 

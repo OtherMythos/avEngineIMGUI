@@ -75,12 +75,13 @@ function update(){
 
 ## Examples
 
-[examples/](examples) holds two runnable projects, each a setup file and one script:
+[examples/](examples) holds three runnable projects, each a setup file and one script:
 
 | | |
 |---|---|
 | [examples/demo](examples/demo) | A debug tools overlay — menus, value widgets, a table, a frame time plot. |
 | [examples/docking](examples/docking) | The [docking](#docking) api — a full screen dockspace, windows docked into it from script, a nested dockspace, and the docking options. |
+| [examples/drawList](examples/drawList) | The [draw list](#draw-list) api — a timeline of coloured blocks on a grid with a playhead that follows the mouse, drawn with primitives rather than widgets. |
 
 ```bash
 /path/to/avEngine/build/Debug/av.app/Contents/MacOS/av examples/docking/avSetup.cfg
@@ -92,7 +93,7 @@ Both load the plugin from `plugins/avImguiPlugin`, so stage a build or a downloa
 
 - The engine has no per-frame plugin hook, so the imgui frame is begun *lazily*: the first `_imgui` call in an engine frame calls `ImGui::NewFrame()` internally. Rendering happens later in the frame inside a custom compositor pass. If no `_imgui` calls are made in a frame, nothing is rendered.
 - The engine runs script updates on a *fixed timestep*, decoupled from the framerate:
-  - When the framerate is higher than the fixed update rate, some rendered frames receive no script update. The plugin re-presents the previous frame's gui for those frames, so the gui does not flicker.
+  - When the framerate is higher than the fixed update rate, some rendered frames receive no script update. The plugin re-presents the previous frame's gui for those frames, so the gui does not flicker. It keeps doing so for a quarter of a second after the last frame a script built, judged in time rather than rendered frames because `--headless` free-runs at thousands of frames a second; a project which stops calling `_imgui` sees its gui disappear after that.
   - When the framerate is lower than the fixed update rate, a single rendered frame can receive several update calls, and widgets submitted twice in one imgui frame appear twice. Scripts that care can guard with `isFirstUpdateOfFrame`:
 
 ```squirrel
@@ -455,6 +456,36 @@ if(_imgui.beginTable("entities", 2, _imgui.TableFlags_Borders | _imgui.TableFlag
 | `beginItemTooltip()` → bool | Tooltip when the previous item is hovered. |
 | `setTooltip(str)` | |
 
+### Draw list
+
+Primitives on the current window's draw list, for anything a script draws itself rather than assembles from widgets — a piano roll, a timeline, a graph. Coordinates are **screen space**, the same space as `getCursorScreenPos` and `getMousePos`; colours are `r, g, b, a` floats in 0..1 like `pushStyleColor`. Drawing is clipped to the current window, and to any clip rectangle pushed on top of that.
+
+| Function | Notes |
+|---|---|
+| `drawLine(x1, y1, x2, y2, r, g, b, a, thickness = 1)` | |
+| `drawRect(x1, y1, x2, y2, r, g, b, a, rounding = 0, thickness = 1)` | Outline. |
+| `drawRectFilled(x1, y1, x2, y2, r, g, b, a, rounding = 0)` | |
+| `drawTriangleFilled(x1, y1, x2, y2, x3, y3, r, g, b, a)` | |
+| `drawCircleFilled(x, y, radius, r, g, b, a)` | |
+| `drawText(x, y, r, g, b, a, text)` | In the current font. |
+| `pushClipRect(x1, y1, x2, y2, intersect = true)` | `intersect` clips to the current clip rectangle as well; false replaces it. Pair with `popClipRect()`. |
+| `popClipRect()` | |
+
+The usual shape is a canvas: take the cursor position as the origin and the content region as the size, put an `invisibleButton` over it so the hover and drag queries treat it as an item, and draw. [examples/drawList](examples/drawList) is a timeline built that way.
+
+```squirrel
+local origin = _imgui.getCursorScreenPos();
+local size = _imgui.getContentRegionAvail();
+_imgui.invisibleButton("##canvas", size[0], size[1]);
+_imgui.pushClipRect(origin[0], origin[1], origin[0] + size[0], origin[1] + size[1]);
+_imgui.drawRectFilled(origin[0], origin[1], origin[0] + size[0], origin[1] + size[1], 0.1, 0.1, 0.12, 1.0);
+if(_imgui.isItemHovered()){
+    local mouse = _imgui.getMousePos();
+    _imgui.drawLine(mouse[0], origin[1], mouse[0], origin[1] + size[1], 1.0, 0.3, 0.3, 1.0, 2.0);
+}
+_imgui.popClipRect();
+```
+
 ### Plots
 
 | Function | Notes |
@@ -636,7 +667,7 @@ The `runApiTests` job runs the test suite (below) on Linux under `xvfb` against 
 
 [test/](test/) holds an integration test suite that drives every `_imgui`
 function against a live engine, using the same [avTools](https://github.com/OtherMythos/avTools)
-test runner as the engine and ProceduralExplorationGame. Each of the ~18 test
+test runner as the engine and ProceduralExplorationGame. Each of the ~19 test
 cases (`test/integration/Api/*`) covers one area of the api — widgets, value
 round-tripping, tables, popups, docking, the ~255 constants, argument validation,
 and so on — and asserts real behaviour, not just the absence of a crash: a value widget

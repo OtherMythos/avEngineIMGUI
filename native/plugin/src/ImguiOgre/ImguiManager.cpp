@@ -52,7 +52,6 @@ namespace AVImgui{
                                    mRenderingEnabled(true),
                                    mVulkan(false),
                                    mHaveDrawData(false),
-                                   mLastFreshDataFrame(0),
                                    mPrevWidth(0),
                                    mPrevHeight(0),
                                    mGlobalScale(1.0f),
@@ -100,6 +99,15 @@ namespace AVImgui{
         createMaterial();
     }
 
+    //Generous enough to span several fixed updates, so an ordinary frame is
+    //never mistaken for a project which has stopped drawing, and short enough
+    //that capture from a project which really has stopped expires before anyone
+    //notices their clicks going nowhere. Measured in time rather than rendered
+    //frames because headless the engine free-runs at thousands of frames a
+    //second while script updates stay at the fixed rate, so a count of frames
+    //that is generous windowed is a fraction of one update headless.
+    const float ImguiManager::STALE_AFTER_SECONDS = 0.25f;
+
     void ImguiManager::notifyFrameUpdate() {
         if(!mHasFrameBegunTime){
             mFrameLive = false;
@@ -110,8 +118,6 @@ namespace AVImgui{
         //never mistaken for a project which has stopped drawing, and short
         //enough that capture from a project which really has stopped expires
         //before anyone notices their clicks going nowhere.
-        static const float STALE_AFTER_SECONDS = 0.25f;
-
         const float elapsed = std::chrono::duration<float>(
             std::chrono::steady_clock::now() - mLastFrameBegunTime).count();
         mFrameLive = elapsed < STALE_AFTER_SECONDS;
@@ -208,8 +214,6 @@ namespace AVImgui{
         @autoreleasepool {
     #endif
 
-        unsigned long ogreFrame = Ogre::Root::getSingletonPtr()->getNextFrameNumber();
-
         if (mFrameActive) {
             mFrameActive = false;
 
@@ -222,16 +226,20 @@ namespace AVImgui{
             // Tell ImGui to create the buffers
             ImGui::Render();
             mHaveDrawData = true;
-            mLastFreshDataFrame = ogreFrame;
+            mLastFreshDataTime = std::chrono::steady_clock::now();
         } else {
             // No frame was built by scripts this engine frame. The engine's
             // fixed timestep means this legitimately happens when the
             // framerate exceeds the fixed update rate, so the previous draw
             // data is re-presented to avoid flickering. If scripts have
-            // genuinely stopped submitting a gui, stop presenting it.
+            // genuinely stopped submitting a gui, stop presenting it - judged
+            // in time, not frames, for the same reason as the input capture:
+            // headless there are dozens of rendered frames per update.
             if (!mHaveDrawData || !mRenderingEnabled)
                 return;
-            if (ogreFrame > mLastFreshDataFrame + 2) {
+            const float sinceFresh = std::chrono::duration<float>(
+                std::chrono::steady_clock::now() - mLastFreshDataTime).count();
+            if (sinceFresh >= STALE_AFTER_SECONDS) {
                 mHaveDrawData = false;
                 return;
             }

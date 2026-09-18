@@ -1553,6 +1553,99 @@ namespace AVImgui{
         }
 
         //---------------------------------------------------------------------
+        //Draw list
+        //---------------------------------------------------------------------
+        //Primitives on the current window's draw list, for anything a script
+        //draws itself rather than assembling from widgets: a piano roll, a
+        //timeline, a graph. Coordinates are screen space - the same space as
+        //getCursorScreenPos and getMousePos - and colours are r, g, b, a floats
+        //in 0..1 like pushStyleColor, so a script needs no packed colour type.
+        inline ImU32 readColour(HSQUIRRELVM vm, SQInteger idx){
+            SQFloat r, g, b, a;
+            sq_getfloat(vm, idx, &r);
+            sq_getfloat(vm, idx + 1, &g);
+            sq_getfloat(vm, idx + 2, &b);
+            sq_getfloat(vm, idx + 3, &a);
+            return ImGui::GetColorU32(ImVec4((float)r, (float)g, (float)b, (float)a));
+        }
+        inline ImVec2 readVec2(HSQUIRRELVM vm, SQInteger idx){
+            SQFloat x, y;
+            sq_getfloat(vm, idx, &x);
+            sq_getfloat(vm, idx + 1, &y);
+            return ImVec2((float)x, (float)y);
+        }
+        SQInteger drawLine(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            const ImVec2 a = readVec2(vm, 2);
+            const ImVec2 b = readVec2(vm, 4);
+            const ImU32 col = readColour(vm, 6);
+            const float thickness = (float)getFloatOr(vm, 10, 1.0f);
+            ImGui::GetWindowDrawList()->AddLine(a, b, col, thickness);
+            return 0;
+        }
+        SQInteger drawRect(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            const ImVec2 a = readVec2(vm, 2);
+            const ImVec2 b = readVec2(vm, 4);
+            const ImU32 col = readColour(vm, 6);
+            const float rounding = (float)getFloatOr(vm, 10, 0.0f);
+            const float thickness = (float)getFloatOr(vm, 11, 1.0f);
+            ImGui::GetWindowDrawList()->AddRect(a, b, col, rounding, 0, thickness);
+            return 0;
+        }
+        SQInteger drawRectFilled(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            const ImVec2 a = readVec2(vm, 2);
+            const ImVec2 b = readVec2(vm, 4);
+            const ImU32 col = readColour(vm, 6);
+            const float rounding = (float)getFloatOr(vm, 10, 0.0f);
+            ImGui::GetWindowDrawList()->AddRectFilled(a, b, col, rounding);
+            return 0;
+        }
+        SQInteger drawTriangleFilled(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            const ImVec2 a = readVec2(vm, 2);
+            const ImVec2 b = readVec2(vm, 4);
+            const ImVec2 c = readVec2(vm, 6);
+            const ImU32 col = readColour(vm, 8);
+            ImGui::GetWindowDrawList()->AddTriangleFilled(a, b, c, col);
+            return 0;
+        }
+        SQInteger drawCircleFilled(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            const ImVec2 centre = readVec2(vm, 2);
+            SQFloat radius;
+            sq_getfloat(vm, 4, &radius);
+            const ImU32 col = readColour(vm, 5);
+            ImGui::GetWindowDrawList()->AddCircleFilled(centre, (float)radius, col);
+            return 0;
+        }
+        SQInteger drawText(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            const ImVec2 pos = readVec2(vm, 2);
+            const ImU32 col = readColour(vm, 4);
+            const SQChar* str;
+            sq_getstring(vm, 8, &str);
+            ImGui::GetWindowDrawList()->AddText(pos, col, str);
+            return 0;
+        }
+        //Clipping is a property of the draw list, so this pairs with the draw
+        //functions rather than with any widget: a roll that scrolls its notes
+        //past the edge of its canvas clips them here and pops when it is done.
+        SQInteger pushClipRect(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            const ImVec2 a = readVec2(vm, 2);
+            const ImVec2 b = readVec2(vm, 4);
+            ImGui::PushClipRect(a, b, getBoolOr(vm, 6, true));
+            return 0;
+        }
+        SQInteger popClipRect(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            ImGui::PopClipRect();
+            return 0;
+        }
+
+        //---------------------------------------------------------------------
         //Plots
         //---------------------------------------------------------------------
         SQInteger plotValues(HSQUIRRELVM vm, bool histogram){
@@ -1972,6 +2065,16 @@ namespace AVImgui{
         AV::ScriptUtils::addFunction(vm, beginItemTooltip, "beginItemTooltip", 1, ".");
         AV::ScriptUtils::addFunction(vm, endTooltip, "endTooltip", 1, ".");
         AV::ScriptUtils::addFunction(vm, setTooltip, "setTooltip", 2, ".s");
+
+        //Draw list
+        AV::ScriptUtils::addFunction(vm, drawLine, "drawLine", -9, ".nnnnnnnnn");
+        AV::ScriptUtils::addFunction(vm, drawRect, "drawRect", -9, ".nnnnnnnnnn");
+        AV::ScriptUtils::addFunction(vm, drawRectFilled, "drawRectFilled", -9, ".nnnnnnnnn");
+        AV::ScriptUtils::addFunction(vm, drawTriangleFilled, "drawTriangleFilled", 11, ".nnnnnnnnnn");
+        AV::ScriptUtils::addFunction(vm, drawCircleFilled, "drawCircleFilled", 8, ".nnnnnnn");
+        AV::ScriptUtils::addFunction(vm, drawText, "drawText", 8, ".nnnnnns");
+        AV::ScriptUtils::addFunction(vm, pushClipRect, "pushClipRect", -5, ".nnnnb");
+        AV::ScriptUtils::addFunction(vm, popClipRect, "popClipRect", 1, ".");
 
         //Plots
         AV::ScriptUtils::addFunction(vm, plotLines, "plotLines", -3, ".sas|onnnn");

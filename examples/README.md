@@ -1,11 +1,12 @@
 # Examples
 
-Two small avEngine projects, each a complete `avSetup.cfg` plus one script.
+Three small avEngine projects, each a complete `avSetup.cfg` plus one script.
 
 | | |
 |---|---|
 | [demo/](demo) | A debug tools overlay: menus, value widgets, a table, a frame time plot. A tour of the general api. |
 | [docking/](docking) | The docking api: a full screen dockspace, windows docked into it from script, a nested dockspace, and the docking options. |
+| [drawList/](drawList) | The draw list api: a timeline of blocks on a grid with a playhead that follows the mouse, drawn with primitives on the window's draw list. |
 
 Both load the plugin from `../../plugins/avImguiPlugin`, which is where the
 distribution is extracted. Build the plugin first (see the [main README](../README.md#building))
