@@ -63,6 +63,32 @@ _t("tooManyArguments", "Passing more arguments than a function takes is an error
     });
 });
 
+_t("scrollRatioOutOfRange", "A scroll centre ratio outside 0..1 is refused rather than asserted on", function(){
+    //imgui asserts on the ratio, which would stop the engine, so the binding
+    //checks it first. The window is needed for the valid calls to have a
+    //window to scroll.
+    _imgui.begin("errors/scrollRatio");
+    _imgui.text("row");
+    ::_tThrows("setScrollHereY above 1", function(){
+        _imgui.setScrollHereY(1.5);
+    });
+    ::_tThrows("setScrollHereX below 0", function(){
+        _imgui.setScrollHereX(-0.1);
+    });
+    ::_tThrows("setScrollFromPosY above 1", function(){
+        _imgui.setScrollFromPosY(0.0, 2.0);
+    });
+    ::_tThrows("setScrollFromPosX below 0", function(){
+        _imgui.setScrollFromPosX(0.0, -1.0);
+    });
+    //The ends of the range are allowed.
+    _imgui.setScrollHereY(0.0);
+    _imgui.setScrollHereY(1.0);
+    _imgui.setScrollFromPosY(0.0, 0.0);
+    _imgui.setScrollFromPosY(0.0, 1.0);
+    _imgui.end();
+});
+
 _t("errorsLeaveTheApiUsable", "The api still works after a rejected call", function(){
     ::_tThrows("bad call", function(){
         _imgui.text(12345);

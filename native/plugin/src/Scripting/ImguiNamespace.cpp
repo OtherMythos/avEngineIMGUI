@@ -410,6 +410,83 @@ namespace AVImgui{
             return 1;
         }
 
+        //Scrolling of the current window. A set is applied by imgui at the
+        //window's next begin rather than immediately, so a get on the frame
+        //of the set still reports the old value.
+        //
+        //imgui asserts on a centre ratio outside 0..1, which would stop the
+        //engine, so one is refused here instead.
+        static const char* kScrollRatioError = "The scroll ratio must be between 0 and 1.";
+        inline bool validScrollRatio(float ratio){
+            return ratio >= 0.0f && ratio <= 1.0f;
+        }
+        SQInteger getScrollX(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            sq_pushfloat(vm, ImGui::GetScrollX());
+            return 1;
+        }
+        SQInteger getScrollY(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            sq_pushfloat(vm, ImGui::GetScrollY());
+            return 1;
+        }
+        SQInteger setScrollX(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            SQFloat v;
+            sq_getfloat(vm, 2, &v);
+            ImGui::SetScrollX((float)v);
+            return 0;
+        }
+        SQInteger setScrollY(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            SQFloat v;
+            sq_getfloat(vm, 2, &v);
+            ImGui::SetScrollY((float)v);
+            return 0;
+        }
+        SQInteger getScrollMaxX(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            sq_pushfloat(vm, ImGui::GetScrollMaxX());
+            return 1;
+        }
+        SQInteger getScrollMaxY(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            sq_pushfloat(vm, ImGui::GetScrollMaxY());
+            return 1;
+        }
+        SQInteger setScrollHereX(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            float ratio = (float)getFloatOr(vm, 2, 0.5f);
+            if(!validScrollRatio(ratio)) return sq_throwerror(vm, kScrollRatioError);
+            ImGui::SetScrollHereX(ratio);
+            return 0;
+        }
+        SQInteger setScrollHereY(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            float ratio = (float)getFloatOr(vm, 2, 0.5f);
+            if(!validScrollRatio(ratio)) return sq_throwerror(vm, kScrollRatioError);
+            ImGui::SetScrollHereY(ratio);
+            return 0;
+        }
+        SQInteger setScrollFromPosX(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            SQFloat v;
+            sq_getfloat(vm, 2, &v);
+            float ratio = (float)getFloatOr(vm, 3, 0.5f);
+            if(!validScrollRatio(ratio)) return sq_throwerror(vm, kScrollRatioError);
+            ImGui::SetScrollFromPosX((float)v, ratio);
+            return 0;
+        }
+        SQInteger setScrollFromPosY(HSQUIRRELVM vm){
+            IMGUI_FRAME_GUARD
+            SQFloat v;
+            sq_getfloat(vm, 2, &v);
+            float ratio = (float)getFloatOr(vm, 3, 0.5f);
+            if(!validScrollRatio(ratio)) return sq_throwerror(vm, kScrollRatioError);
+            ImGui::SetScrollFromPosY((float)v, ratio);
+            return 0;
+        }
+
         //---------------------------------------------------------------------
         //Docking
         //
@@ -1927,6 +2004,16 @@ namespace AVImgui{
         AV::ScriptUtils::addFunction(vm, isWindowHovered, "isWindowHovered", -1, ".i");
         AV::ScriptUtils::addFunction(vm, isWindowFocused, "isWindowFocused", -1, ".i");
         AV::ScriptUtils::addFunction(vm, isWindowCollapsed, "isWindowCollapsed", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getScrollX, "getScrollX", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getScrollY, "getScrollY", 1, ".");
+        AV::ScriptUtils::addFunction(vm, setScrollX, "setScrollX", 2, ".n");
+        AV::ScriptUtils::addFunction(vm, setScrollY, "setScrollY", 2, ".n");
+        AV::ScriptUtils::addFunction(vm, getScrollMaxX, "getScrollMaxX", 1, ".");
+        AV::ScriptUtils::addFunction(vm, getScrollMaxY, "getScrollMaxY", 1, ".");
+        AV::ScriptUtils::addFunction(vm, setScrollHereX, "setScrollHereX", -1, ".n");
+        AV::ScriptUtils::addFunction(vm, setScrollHereY, "setScrollHereY", -1, ".n");
+        AV::ScriptUtils::addFunction(vm, setScrollFromPosX, "setScrollFromPosX", -2, ".nn");
+        AV::ScriptUtils::addFunction(vm, setScrollFromPosY, "setScrollFromPosY", -2, ".nn");
 
         //Docking
         AV::ScriptUtils::addFunction(vm, dockSpace, "dockSpace", -2, ".s|inni");

@@ -227,6 +227,13 @@ if(_imgui.colorEdit3("Tint", col)){
 | `getWindowWidth()` / `getWindowHeight()` → float | |
 | `getContentRegionAvail()` → [w, h] | |
 | `isWindowHovered(flags = 0)` / `isWindowFocused(flags = 0)` / `isWindowCollapsed()` → bool | |
+| `getScrollX()` / `getScrollY()` → float | The current window's scroll, in pixels. |
+| `setScrollX(x)` / `setScrollY(y)` | Clamped to `[0, getScrollMax*()]`. |
+| `getScrollMaxX()` / `getScrollMaxY()` → float | |
+| `setScrollHereX(ratio = 0.5)` / `setScrollHereY(ratio = 0.5)` | Scroll so the item just submitted is at `ratio` of the visible area: 0 the top or left, 0.5 the middle, 1 the bottom or right. |
+| `setScrollFromPosX(localX, ratio = 0.5)` / `setScrollFromPosY(localY, ratio = 0.5)` | The same for a position relative to the window rather than for the last item. |
+
+imgui applies a scroll change at the window's next `begin`, not at the call: `getScrollY()` on the same frame as a `setScrollY(y)` still reports the old value, and the frame after reports `y`. A child window scrolls independently of the window holding it, so the set goes between its `beginChild` and `endChild`.
 
 ### Docking
 

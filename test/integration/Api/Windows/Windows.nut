@@ -177,3 +177,144 @@ _t("getContentRegionAvail", "Content region is a positive pair inside a sized wi
     _test.assertTrue(avail[0] <= 300.0);
     _test.assertTrue(avail[1] <= 200.0);
 });
+
+//Scrolling. imgui applies a scroll request at the window's next begin rather
+//than at the call, so each of these is a pair: one frame asks, the next reads.
+::_scrollChildRow <- null;
+::_scrollChild <- function(){
+    _imgui.begin("windows/scroll");
+    local shown = _imgui.beginChild("scrollV", 200, 100, _imgui.ChildFlags_Borders);
+    for(local i = 0; i < 200; i++){
+        if(i == 100){
+            //Where the row the later tests centre on sits, measured rather than
+            //assumed so the check does not depend on the font.
+            ::_scrollChildRow = {
+                "top": _imgui.getCursorPosY(),
+                "height": _imgui.calcTextSize("Row")[1],
+                "windowHeight": _imgui.getWindowSize()[1],
+                "scroll": _imgui.getScrollY()
+            };
+        }
+        _imgui.text("Row " + i);
+    }
+    return shown;
+};
+
+_t("scrollQueries", "Scroll queries return floats and a set is accepted", function(){
+    ::_scrollChild();
+    local x = _imgui.getScrollX();
+    local y = _imgui.getScrollY();
+    local maxX = _imgui.getScrollMaxX();
+    local maxY = _imgui.getScrollMaxY();
+    _imgui.setScrollY(50);
+    _imgui.endChild();
+    _imgui.end();
+
+    _test.assertEqual("float", typeof x);
+    _test.assertEqual("float", typeof y);
+    _test.assertEqual("float", typeof maxX);
+    _test.assertEqual("float", typeof maxY);
+    //A fresh window starts at the top.
+    ::_tNear(y, 0.0);
+});
+
+_t("setScrollYApplied", "The scroll asked for last frame is in place this frame", function(){
+    ::_scrollChild();
+    local y = _imgui.getScrollY();
+    local maxY = _imgui.getScrollMaxY();
+    //Far past the end, to be clamped.
+    _imgui.setScrollY(1000000);
+    _imgui.endChild();
+    _imgui.end();
+
+    ::_tNear(y, 50.0, 0.5);
+    //Two hundred rows in a hundred pixel child leave plenty to scroll.
+    _test.assertTrue(maxY > 100.0);
+});
+
+_t("setScrollYClamped", "A scroll past the end stops at the maximum", function(){
+    ::_scrollChild();
+    local y = _imgui.getScrollY();
+    local maxY = _imgui.getScrollMaxY();
+    _imgui.setScrollY(0);
+    _imgui.endChild();
+    _imgui.end();
+
+    ::_tNear(y, maxY, 0.5);
+    _test.assertTrue(y > 100.0);
+});
+
+_t("setScrollHereYRequest", "setScrollHereY is asked for on the row to centre", function(){
+    _imgui.begin("windows/scroll");
+    _imgui.beginChild("scrollV", 200, 100, _imgui.ChildFlags_Borders);
+    for(local i = 0; i < 200; i++){
+        _imgui.text("Row " + i);
+        if(i == 100) _imgui.setScrollHereY(0.5);
+    }
+    _imgui.endChild();
+    _imgui.end();
+});
+
+_t("setScrollHereYCentres", "The row is in the middle of the child the frame after", function(){
+    ::_scrollChild();
+    local y = _imgui.getScrollY();
+    _imgui.endChild();
+    _imgui.end();
+
+    //The row's middle sits at the middle of the child's visible area. The
+    //measurements come from this frame, in which the child is already scrolled
+    //to where the request put it, and top includes that scroll.
+    local row = ::_scrollChildRow;
+    local expected = row.top + row.height * 0.5 - row.windowHeight * 0.5;
+    ::_tNear(y, expected, 1.5);
+    _test.assertTrue(y > 0.0);
+});
+
+_t("setScrollFromPosYRequest", "setScrollFromPosY takes a window-relative position", function(){
+    ::_scrollChild();
+    //The row's top, relative to the window rather than to the content: the
+    //cursor includes the scroll, so it comes back out. Ratio 0 puts it at the
+    //top of the visible area.
+    local row = ::_scrollChildRow;
+    _imgui.setScrollFromPosY(row.top - row.scroll, 0.0);
+    _imgui.endChild();
+    _imgui.end();
+});
+
+_t("setScrollFromPosYApplied", "The position given is at the top the frame after", function(){
+    ::_scrollChild();
+    local y = _imgui.getScrollY();
+    _imgui.endChild();
+    _imgui.end();
+
+    ::_tNear(y, ::_scrollChildRow.top, 1.5);
+});
+
+_t("setScrollXRequest", "Horizontal scrolling is asked for in a wide child", function(){
+    _imgui.begin("windows/scroll");
+    _imgui.beginChild("scrollH", 200, 60, _imgui.ChildFlags_Borders,
+        _imgui.WindowFlags_HorizontalScrollbar);
+    _imgui.dummy(1000, 10);
+    _imgui.text("Wide");
+    local x = _imgui.getScrollX();
+    _imgui.setScrollX(30);
+    _imgui.endChild();
+    _imgui.end();
+
+    ::_tNear(x, 0.0);
+});
+
+_t("setScrollXApplied", "The horizontal scroll is in place the frame after", function(){
+    _imgui.begin("windows/scroll");
+    _imgui.beginChild("scrollH", 200, 60, _imgui.ChildFlags_Borders,
+        _imgui.WindowFlags_HorizontalScrollbar);
+    _imgui.dummy(1000, 10);
+    _imgui.text("Wide");
+    local x = _imgui.getScrollX();
+    local maxX = _imgui.getScrollMaxX();
+    _imgui.endChild();
+    _imgui.end();
+
+    ::_tNear(x, 30.0, 0.5);
+    _test.assertTrue(maxX > 500.0);
+});
