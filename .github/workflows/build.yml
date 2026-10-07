@@ -276,3 +276,29 @@ jobs:
         with:
           name: apiTestLogs-${{ matrix.buildType }}
           path: /tmp/testLogs
+
+  publishRelease:
+    needs: [distribution, runApiTests]
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download the distribution
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.distribution.outputs.artifactName }}
+          path: dist
+      - name: Publish to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ARTIFACT_NAME: ${{ needs.distribution.outputs.artifactName }}
+        run: |
+          # Release assets are publicly downloadable without auth and don't expire, unlike artifacts.
+          TAG="build-${GITHUB_SHA::7}"
+          (cd dist && zip -r "../${ARTIFACT_NAME}.zip" avImguiPlugin)
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "avImguiPlugin ${GITHUB_SHA::7}" \
+            --notes "Plugin distribution built from $GITHUB_SHA." 2>/dev/null || true
+          gh release upload "$TAG" "${ARTIFACT_NAME}.zip" --clobber
